@@ -11,7 +11,6 @@ public class UserService implements IUserService {
 
     @Override
     public User createUser(String login, String password) {
-        // Используем твой новый конструктор User(login, password)
         User user = new User(login, password);
         users.put(user.getId(), user);
         return user;
@@ -43,7 +42,6 @@ public class UserService implements IUserService {
         return users.remove(id) != null;
     }
 
-    // РЕАЛИЗАЦИЯ: Добавляем аккаунт в список пользователя
     @Override
     public void addAccountToUser(UUID userId, TradingAccount account) {
         User user = users.get(userId);

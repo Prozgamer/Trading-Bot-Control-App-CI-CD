@@ -19,7 +19,7 @@ public class TradingAccount {
         this.mtPassword = mtPassword;
         this.server = server;
         this.timeframe = timeframe;
-        this.isRunning = false; // За умовчуванням
+        this.isRunning = false; // By default
     }
 
 

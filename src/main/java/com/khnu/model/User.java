@@ -6,8 +6,8 @@ import java.util.UUID;
 
 public class User {
     private UUID id;
-    private String login; // с маленькой буквы
-    private String password; // с маленькой буквы
+    private String login;
+    private String password;
     private String email;
     private List<TradingAccount> tradingAccounts = new ArrayList<>();
 
@@ -21,7 +21,7 @@ public class User {
         this.password = password;
     }
 
-    // Геттеры и сеттеры - ОБЯЗАТЕЛЬНО для всех полей
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
 
