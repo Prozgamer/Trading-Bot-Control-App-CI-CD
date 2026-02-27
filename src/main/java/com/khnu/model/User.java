@@ -34,7 +34,6 @@ public class User {
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
 
-    // Тот самый важный геттер для отображения в JSON/Swagger
     public List<TradingAccount> getTradingAccounts() {
         return tradingAccounts;
     }
