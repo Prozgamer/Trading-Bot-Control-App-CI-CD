@@ -1,8 +1,8 @@
 package com.khnu.controller;
 
-import com.khnu.model.TradingAccount;
 import com.khnu.model.User;
 import com.khnu.service.IUserService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,34 +22,32 @@ public class UserController {
         this.userService = userService;
     }
 
-    @PostMapping
-    public ResponseEntity<User> createUser(@RequestBody User user) {
+    // 1. Реєстрація
+    @PostMapping("/register")
+    public ResponseEntity<User> register(@Valid @RequestBody User user) { // <-- @Valid обов'язково!
         User createdUser = userService.createUser(user.getLogin(), user.getPassword());
         return new ResponseEntity<>(createdUser, HttpStatus.CREATED);
     }
 
-
-    @GetMapping
-    public List<User> getAllUsers() {
-        return userService.getAllUsers();
-    }
-
-
-    @GetMapping("/{id}")
-    public ResponseEntity<User> getUserById(@PathVariable UUID id) {
-        return userService.getUserById(id)
+    // 2. Отримання профілю за ID
+    @GetMapping("/{userid}")
+    public ResponseEntity<User> getUserById(@PathVariable UUID userid) {
+        return userService.getUserById(userid)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @PostMapping("/{userId}/accounts")
-    public ResponseEntity<String> addAccount(@PathVariable UUID userId, @RequestBody TradingAccount account) {
-        try {
-            userService.addAccountToUser(userId, account);
-            return ResponseEntity.ok("Trading account added successfully to user: " + userId);
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
-        }
+    // 3. Оновлення профілю
+    @PutMapping("/{userid}")
+    public ResponseEntity<User> updateProfile(@PathVariable UUID userid, @RequestBody User userUpdate) {
+        // Тут має бути виклик сервісу для оновлення email/password
+        // Поки що повернемо OK для тесту в Postman
+        return ResponseEntity.ok(userUpdate);
+    }
+
+    @GetMapping
+    public List<User> getAllUsers() {
+        return userService.getAllUsers();
     }
 
     @DeleteMapping("/{id}")

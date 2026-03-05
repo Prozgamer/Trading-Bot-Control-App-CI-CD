@@ -18,4 +18,8 @@ public interface IUserService {
     boolean deleteUser(UUID id);
 
     void addAccountToUser(UUID userId, TradingAccount account);
+
+    boolean updateUserProfile(UUID userId, String email, String password);
+
+    Optional<TradingAccount> getAccountById(UUID userId, UUID accountId);
 }

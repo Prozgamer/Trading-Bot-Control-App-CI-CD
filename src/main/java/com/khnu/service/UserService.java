@@ -55,4 +55,28 @@ public class UserService implements IUserService {
             throw new RuntimeException("User not found with id: " + userId);
         }
     }
+
+    @Override
+    public boolean updateUserProfile(UUID userId, String email, String password) {
+        User user = users.get(userId);
+        if (user != null) {
+            // Если в модели User появилось поле email, обновляем его
+            // user.setEmail(email);
+            user.setPassword(password);
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public Optional<TradingAccount> getAccountById(UUID userId, UUID accountId) {
+        User user = users.get(userId);
+        if (user != null) {
+            return user.getTradingAccounts().stream()
+                    .filter(acc -> acc.getId().equals(accountId))
+                    .findFirst();
+        }
+        return Optional.empty();
+    }
+
 }

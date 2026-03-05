@@ -1,0 +1,11 @@
+settings:
+    applicationVersion: "1.0.0-SNAPSHOT"
+    testMode:
+        enabled: true
+
+logging:
+    level:
+        org.springframework.web: DEBUG
+
+server:
+    port: 8080

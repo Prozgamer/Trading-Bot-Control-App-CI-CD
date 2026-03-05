@@ -3,12 +3,23 @@ package com.khnu.model;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.Email;
 
 public class User {
     private UUID id;
+
+    @NotBlank(message = "Username is required")
+    @Size(min = 3, max = 20, message = "Username must be between 3 and 20 characters")
     private String login;
+
     private String password;
+
+    @Email(message = "Invalid email format")
+    @NotBlank(message = "Email is required")
     private String email;
+
     private List<TradingAccount> tradingAccounts = new ArrayList<>();
 
     public User() {
@@ -34,7 +45,7 @@ public class User {
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
 
-    // Тот самый важный геттер для отображения в JSON/Swagger
+
     public List<TradingAccount> getTradingAccounts() {
         return tradingAccounts;
     }
