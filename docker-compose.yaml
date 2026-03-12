@@ -1,0 +1,24 @@
+version: '3.8'
+services:
+  users-api:
+    image: prozgamer/trading-bot:0.0.1
+    container_name: users-api
+    ports:
+      - "5100:8080"
+    environment:
+      - APP_VERSION=2.0.1
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/trading_db
+      - SPRING_DATASOURCE_USERNAME=user
+      - SPRING_DATASOURCE_PASSWORD=password
+    depends_on:
+      - db
+
+  db:
+    image: postgres:15
+    container_name: postgres-db
+    environment:
+      POSTGRES_DB: trading_db
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5433:5432"

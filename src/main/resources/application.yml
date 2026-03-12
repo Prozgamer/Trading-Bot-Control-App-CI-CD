@@ -1,5 +1,5 @@
 settings:
-    applicationVersion: "1.0.0-SNAPSHOT"
+    applicationVersion: ${APP_VERSION:1.0.0-SNAPSHOT}
     testMode:
         enabled: true
 
