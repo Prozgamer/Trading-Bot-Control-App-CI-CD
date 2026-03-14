@@ -32,9 +32,10 @@ public class UserController {
     // 2. Отримання профілю за ID
     @GetMapping("/{userid}")
     public ResponseEntity<User> getUserById(@PathVariable UUID userid) {
-        return userService.getUserById(userid)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+        User user = userService.getUserById(userid)
+                .orElseThrow(() -> new RuntimeException("User with id " + userid + " not found"));
+
+        return ResponseEntity.ok(user);
     }
 
     // 3. Оновлення профілю

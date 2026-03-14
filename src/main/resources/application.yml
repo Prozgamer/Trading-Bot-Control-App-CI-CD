@@ -1,11 +1,18 @@
 settings:
     applicationVersion: ${APP_VERSION:1.0.0-SNAPSHOT}
     testMode:
-        enabled: true
+        enabled: false
 
 logging:
     level:
         org.springframework.web: DEBUG
+
+spring:
+    mvc:
+        throw-exception-if-no-handler-found: true
+    web:
+        resources:
+            add-mappings: false
 
 server:
     port: 8080

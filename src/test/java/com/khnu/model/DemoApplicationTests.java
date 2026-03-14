@@ -17,7 +17,7 @@ class DemoApplicationTests {
 class HelloController {
 	@GetMapping("/hello")
 	public String home(){
-		return("privet Luda!");
+		return("privet!");
 	}
 
 }
