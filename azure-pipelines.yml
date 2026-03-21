@@ -1,0 +1,38 @@
+# Maven
+# Build your Java project and run tests with Apache Maven.
+# Add steps that analyze code, save build artifacts, deploy, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/languages/java
+
+trigger:
+- main 
+
+pool:
+  vmImage: 'ubuntu-latest' 
+
+steps:
+# 1. Java 23
+- task: JavaToolInstaller@0
+  displayName: 'Install Java 23'
+  inputs:
+    versionSpec: '23'
+    jdkArchitectureOption: 'x64'
+    jdkSourceOption: 'PreInstalled'
+
+# 2. Збираємо проект через Maven
+- task: Maven@3
+  displayName: 'Maven Build'
+  inputs:
+    mavenPomFile: 'pom.xml'
+    goals: 'clean package -DskipTests'
+    javaHomeOption: 'Path'
+    jdkUserInputPath: '$(JAVA_HOME)' 
+    publishJUnitResults: true
+    testResultsFiles: '**/surefire-reports/TEST-*.xml'
+
+# 3. Зберігаємо результат (Артефакт)
+- task: PublishPipelineArtifact@1
+  displayName: 'Save Jar File'
+  inputs:
+    targetPath: '$(System.DefaultWorkingDirectory)/target'
+    artifact: 'MyProjectBuild'
+    publishLocation: 'pipeline'
