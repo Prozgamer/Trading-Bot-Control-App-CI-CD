@@ -10,26 +10,23 @@ pool:
   vmImage: 'ubuntu-latest' 
 
 steps:
-# 1. Java 23
-- task: JavaToolInstaller@0
-  displayName: 'Install Java 23'
+- task: UseJava@1
+  displayName: 'Use Java 23'
   inputs:
     versionSpec: '23'
-    jdkArchitectureOption: 'x64'
-    jdkSourceOption: 'PreInstalled'
+    alignment: 'openjdk'
+    architecture: 'x64'
 
-# 2. Збираємо проект через Maven
 - task: Maven@3
   displayName: 'Maven Build'
   inputs:
     mavenPomFile: 'pom.xml'
     goals: 'clean package -DskipTests'
-    javaHomeOption: 'Path'
-    jdkUserInputPath: '$(JAVA_HOME)' 
+    javaHomeOption: 'JDKVersion'
+    jdkVersionOption: '1.21' 
     publishJUnitResults: true
     testResultsFiles: '**/surefire-reports/TEST-*.xml'
 
-# 3. Зберігаємо результат (Артефакт)
 - task: PublishPipelineArtifact@1
   displayName: 'Save Jar File'
   inputs:
