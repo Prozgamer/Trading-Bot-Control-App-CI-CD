@@ -10,27 +10,25 @@ pool:
   vmImage: 'ubuntu-latest'
 
 steps:
-# 1. Скачиваем и настраиваем Java 23 вручную через скрипт
 - script: |
     sudo apt-get update
     sudo apt-get install -y openjdk-23-jdk
-    echo "##vso[task.setvariable variable=JAVA_HOME]/usr/lib/jvm/java-23-openjdk-amd64"
-    echo "##vso[task.prependpath]/usr/lib/jvm/java-23-openjdk-amd64/bin"
+    # Находим реальный путь к Java и сохраняем в системную переменную
+    JAVA_PATH=$(readlink -f /usr/bin/java | sed "s:/bin/java::")
+    echo "##vso[task.setvariable variable=JAVA_HOME]$JAVA_PATH"
   displayName: 'Install OpenJDK 23'
 
-# 2. Собираем проект через Maven
+
 - task: Maven@3
   displayName: 'Maven Build'
   inputs:
     mavenPomFile: 'pom.xml'
     goals: 'clean package -DskipTests'
-    # Указываем использовать путь, который мы настроили в скрипте выше
     javaHomeOption: 'Path'
-    jdkUserInputPath: '/usr/lib/jvm/java-23-openjdk-amd64'
+    jdkUserInputPath: '$(JAVA_HOME)'
     publishJUnitResults: true
     testResultsFiles: '**/surefire-reports/TEST-*.xml'
 
-# 3. Сохраняем результат
 - task: PublishPipelineArtifact@1
   displayName: 'Save Jar File'
   inputs:
