@@ -10,7 +10,7 @@ pool:
   vmImage: 'ubuntu-latest'
 
 steps:
-# 1. Устанавливаем Java 21 (она уже есть в системе, просто активируем)
+# 1. Встановлюємо Java 21 
 - task: JavaToolInstaller@0
   displayName: 'Use Java 21'
   inputs:
@@ -18,7 +18,7 @@ steps:
     jdkArchitectureOption: 'x64'
     jdkSourceOption: 'PreInstalled'
 
-# 2. Собираем проект через стандартный Maven
+# 2. Збираємо проект через стандартний Maven
 - task: Maven@3
   displayName: 'Maven Build'
   inputs:
@@ -27,10 +27,10 @@ steps:
     publishJUnitResults: true
     testResultsFiles: '**/surefire-reports/TEST-*.xml'
     javaHomeOption: 'JDKVersion'
-    jdkVersionOption: '1.21' # Azure отлично понимает эту версию
+    jdkVersionOption: '1.21' 
     mavenVersionOption: 'Default'
 
-# 3. Сохраняем результат (Artifact)
+# 3. Зюергіаємо результат (Artifact)
 - task: PublishPipelineArtifact@1
   displayName: 'Publish Artifact'
   inputs:
