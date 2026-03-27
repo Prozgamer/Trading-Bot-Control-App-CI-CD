@@ -1,39 +1,60 @@
-# Maven
-# Build your Java project and run tests with Apache Maven.
-# Add steps that analyze code, save build artifacts, deploy, and more:
-# https://docs.microsoft.com/azure/devops/pipelines/languages/java
-
 trigger:
-- main
+  branches:
+    include:
+    - main
+    - feature/*
 
-pool:
-  vmImage: 'ubuntu-latest'
+# завдання 2 розрахунок версії
+variables:
+  - name: buildVersion
+    value: '1.0.$(Build.BuildId)' 
 
-steps:
-# 1. Встановлюємо Java 21 
-- task: JavaToolInstaller@0
-  displayName: 'Use Java 21'
-  inputs:
-    versionSpec: '21'
-    jdkArchitectureOption: 'x64'
-    jdkSourceOption: 'PreInstalled'
+stages:
+- stage: PreBuild
+  displayName: 'Stage 1: Pre-Build'
+  jobs:
+  - job: EnvironmentSetup
+    steps:
+    # друкування змінних оточення
+    - script: |
+        echo "Calculating version for build: $(buildVersion)"
+        echo "Full environment list:"
+        printenv | sort
+      displayName: 'Print Environment Variables'
 
-# 2. Збираємо проект через стандартний Maven
-- task: Maven@3
-  displayName: 'Maven Build'
-  inputs:
-    mavenPomFile: 'pom.xml'
-    goals: 'clean package -DskipTests'
-    publishJUnitResults: true
-    testResultsFiles: '**/surefire-reports/TEST-*.xml'
-    javaHomeOption: 'JDKVersion'
-    jdkVersionOption: '1.21' 
-    mavenVersionOption: 'Default'
+- stage: BuildAndTest
+  displayName: 'Stage 2: Build & Test'
+  jobs:
+  - job: MavenBuildAndTest
+    steps:
+    - task: JavaToolInstaller@0
+      displayName: 'Install Java 21'
+      inputs:
+        versionSpec: '21'
+        jdkArchitectureOption: 'x64'
+        jdkSourceOption: 'PreInstalled'
+    
+    #Unit Tests
+    - task: Maven@3
+      displayName: 'Maven Build & Unit Tests'
+      inputs:
+        mavenPomFile: 'pom.xml'
+        goals: 'clean package'
+        publishJUnitResults: true
+        testResultsFiles: '**/surefire-reports/TEST-*.xml'
+        javaHomeOption: 'JDKVersion'
+        jdkVersionOption: '1.21'
 
-# 3. Зюергіаємо результат (Artifact)
-- task: PublishPipelineArtifact@1
-  displayName: 'Publish Artifact'
-  inputs:
-    targetPath: '$(System.DefaultWorkingDirectory)/target'
-    artifact: 'drop'
-    publishLocation: 'pipeline'
+- stage: PostBuild
+  displayName: 'Stage 3: Post-Build'
+  #Умова — НЕ запускати для гілок feature/* (тільки для main)
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  jobs:
+  - job: PublishArtifact
+    steps:
+    - task: PublishPipelineArtifact@1
+      displayName: 'Publish JAR with version'
+      inputs:
+        targetPath: '$(System.DefaultWorkingDirectory)/target'
+        artifact: 'users-api-v$(buildVersion)'
+        publishLocation: 'pipeline'
