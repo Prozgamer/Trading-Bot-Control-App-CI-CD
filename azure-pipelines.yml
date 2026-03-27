@@ -4,8 +4,9 @@ trigger:
     - main
     - feature/*
 
-# завдання 2 розрахунок версії
+# зчитуємо версію
 variables:
+  - group: 'my-war-group' 
   - name: buildVersion
     value: '1.0.$(Build.BuildId)' 
 
@@ -15,17 +16,16 @@ stages:
   jobs:
   - job: EnvironmentSetup
     steps:
-    # друкування змінних оточення
     - script: |
-        echo "Calculating version for build: $(buildVersion)"
-        echo "Full environment list:"
+        echo "Project Name from Library: $(MY_PROJECT_NAME)"
+        echo "Calculated Version: $(buildVersion)"
         printenv | sort
-      displayName: 'Print Environment Variables'
+      displayName: 'Print Variables and Environment'
 
-- stage: BuildAndTest
-  displayName: 'Stage 2: Build & Test'
+- stage: BuildAndPublish
+  displayName: 'Stage 2 & 3: Build, Test & Publish'
   jobs:
-  - job: MavenBuildAndTest
+  - job: MainJob
     steps:
     - task: JavaToolInstaller@0
       displayName: 'Install Java 21'
@@ -34,7 +34,7 @@ stages:
         jdkArchitectureOption: 'x64'
         jdkSourceOption: 'PreInstalled'
     
-    #Unit Tests
+    # Збірка і тести
     - task: Maven@3
       displayName: 'Maven Build & Unit Tests'
       inputs:
@@ -45,15 +45,10 @@ stages:
         javaHomeOption: 'JDKVersion'
         jdkVersionOption: '1.21'
 
-- stage: PostBuild
-  displayName: 'Stage 3: Post-Build'
-  #Умова — НЕ запускати для гілок feature/* (тільки для main)
-  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
-  jobs:
-  - job: PublishArtifact
-    steps:
+    # Публикація артефакту
     - task: PublishPipelineArtifact@1
-      displayName: 'Publish JAR with version'
+      displayName: 'Publish JAR'
+      condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
       inputs:
         targetPath: '$(System.DefaultWorkingDirectory)/target'
         artifact: 'users-api-v$(buildVersion)'
