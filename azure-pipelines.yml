@@ -7,7 +7,7 @@ variables:
     value: 'prozgamer/trading-bot'
 
 stages:
-#Pre-Build 
+# Stage 1: Розрахунок версії
 - stage: StageID_PreBuild
   displayName: 'Pre-Build'
   jobs:
@@ -19,7 +19,7 @@ stages:
       name: CalculateAppVersion
       displayName: 'Calculate Application Version'
 
-# Збірка
+# Stage 2: збірка JAR
 - stage: StageID_BuildAndTestProject
   displayName: 'Project: Build and Test'
   dependsOn: StageID_PreBuild
@@ -29,35 +29,29 @@ stages:
   - job: BuildJob
     steps:
     - task: JavaToolInstaller@0
-      displayName: 'Install Java 21'
       inputs:
         versionSpec: '21'
         jdkArchitectureOption: 'x64'
         jdkSourceOption: 'PreInstalled'
-
-    - script: echo "Building version $(APP_VERSION)"
-      displayName: 'Print Version from Pre-Build'
-
     - task: Maven@3
-      displayName: 'Maven Package'
       inputs:
         mavenPomFile: 'pom.xml'
         goals: 'clean package -DskipTests'
         javaHomeOption: 'JDKVersion'
         jdkVersionOption: '1.21'
 
-# Docker Build, Save and Push
+# Stage 3: Docker (залежить від PreBuild для версії і від BuildAndTestProject для JAR)
 - stage: StageID_BuildAndPushDockerImage
   displayName: 'Docker: Build and Push'
-  dependsOn: StageID_BuildAndTestProject
-  #Тілько для main
+  dependsOn: 
+    - StageID_PreBuild
+    - StageID_BuildAndTestProject
   condition: and(succeeded(), eq(variables['Build.SourceBranchName'], 'main'))
   variables:
     APP_VERSION: $[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]
   jobs:
   - job: JobID_BuildAndPushDockerImage
     steps:
-    #(Build)
     - task: Docker@2
       displayName: 'Build Docker Image'
       inputs:
@@ -68,19 +62,17 @@ stages:
           $(APP_VERSION)
           latest
 
-    # B2: зберігання артефакту
     - script: |
         mkdir -p $(Build.ArtifactStagingDirectory)/Dockerimage
         docker save $(dockerRepository):$(APP_VERSION) -o $(Build.ArtifactStagingDirectory)/Dockerimage/image.tar
       displayName: 'Save Docker image to tar'
 
     - task: PublishPipelineArtifact@1
+      displayName: 'Publish Docker Tar Artifact'
       inputs:
         targetPath: '$(Build.ArtifactStagingDirectory)/Dockerimage'
         artifact: 'DockerImage_Archive'
-      displayName: 'Publish Docker Tar Artifact'
 
-    #(Push)
     - task: Docker@2
       displayName: 'Push to Docker Registry'
       inputs:
@@ -91,15 +83,16 @@ stages:
           $(APP_VERSION)
           latest
 
-#Helm Chart
+# Stage 4: Helm Stub
 - stage: StageID_HelmChart
-  displayName: 'Helm Chart: Pack and...'
+  displayName: 'Helm Chart: Pack'
   dependsOn: StageID_BuildAndPushDockerImage
   jobs:
   - job: HelmStub
     steps:
     - script: echo "Helm Stage Stub"
 
+# Stage 5: Post-Build
 - stage: StageID_PostBuild
   displayName: 'Post-Build'
   dependsOn: StageID_HelmChart
