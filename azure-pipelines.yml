@@ -7,54 +7,93 @@ variables:
     value: 'prozgamer/trading-bot'
 
 stages:
-- stage: Build
-  displayName: 'Stage 1: Build JAR'
+#Pre-Build 
+- stage: StageID_PreBuild
+  displayName: 'Pre-Build'
   jobs:
-  - job: Compile
+  - job: JobID_PreBuild
     steps:
-    - task: JavaToolInstaller@0
-      inputs:
-        versionSpec: '21'
-        jdkArchitectureOption: 'x64'
-        jdkSourceOption: 'PreInstalled'
+    - script: |
+        VERSION="1.0.$(Build.BuildId)"
+        echo "##vso[task.setvariable variable=APP_VERSION;isOutput=true]$VERSION"
+      name: CalculateAppVersion
+      displayName: 'Calculate Application Version'
 
+# Збірка
+- stage: StageID_BuildAndTestProject
+  displayName: 'Project: Build and Test'
+  dependsOn: StageID_PreBuild
+  variables:
+    # Отримування змінної з іншого стейджа
+    APP_VERSION: $[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]
+  jobs:
+  - job: BuildJob
+    steps:
+    - script: echo "Building version $(APP_VERSION)"
+      displayName: 'Print Version from Pre-Build'
     - task: Maven@3
       inputs:
         mavenPomFile: 'pom.xml'
         goals: 'clean package -DskipTests'
-      displayName: 'Maven Package'
 
+# Docker Build, Save and Push
+- stage: StageID_BuildAndPushDockerImage
+  displayName: 'Docker: Build and Push'
+  dependsOn: StageID_BuildAndTestProject
+  #Тілько для main
+  condition: and(succeeded(), eq(variables['Build.SourceBranchName'], 'main'))
+  variables:
+    APP_VERSION: $[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]
+  jobs:
+  - job: JobID_BuildAndPushDockerImage
+    steps:
+    #(Build)
+    - task: Docker@2
+      displayName: 'Build Docker Image'
+      inputs:
+        command: 'build'
+        repository: $(dockerRepository)
+        dockerfile: '**/Dockerfile'
+        tags: |
+          $(APP_VERSION)
+          latest
+
+    # B2: зберігання артефакту
     - script: |
-        VERSION="1.0.$(Build.BuildId)"
-        echo "##vso[task.setvariable variable=outVersion;isOutput=true]$VERSION"
-      name: setVarStep 
-      displayName: 'Set Output Version Variable'
+        mkdir -p $(Build.ArtifactStagingDirectory)/Dockerimage
+        docker save $(dockerRepository):$(APP_VERSION) -o $(Build.ArtifactStagingDirectory)/Dockerimage/image.tar
+      displayName: 'Save Docker image to tar'
 
     - task: PublishPipelineArtifact@1
       inputs:
-        targetPath: '$(System.DefaultWorkingDirectory)/target'
-        artifact: 'jar-file'
+        targetPath: '$(Build.ArtifactStagingDirectory)/Dockerimage'
+        artifact: 'DockerImage_Archive'
+      displayName: 'Publish Docker Tar Artifact'
 
-- stage: DockerStage
-  displayName: 'Stage 2: Docker Build & Push'
-  dependsOn: Build
-  variables:
-    buildVersion: $[ stageDependencies.Build.Compile.outputs['setVarStep.outVersion'] ]
-  jobs:
-  - job: DockerJob
-    steps:
-    - task: DownloadPipelineArtifact@1
-      inputs:
-        artifactName: 'jar-file'
-        targetPath: '$(System.DefaultWorkingDirectory)/target'
-
+    #(Push)
     - task: Docker@2
-      displayName: 'Build and Push to Docker Hub'
+      displayName: 'Push to Docker Registry'
       inputs:
         containerRegistry: 'docker-hub-conn'
         repository: $(dockerRepository)
-        command: 'buildAndPush'
-        Dockerfile: '**/Dockerfile'
+        command: 'push'
         tags: |
-          $(buildVersion)
+          $(APP_VERSION)
           latest
+
+#Helm Chart
+- stage: StageID_HelmChart
+  displayName: 'Helm Chart: Pack and...'
+  dependsOn: StageID_BuildAndPushDockerImage
+  jobs:
+  - job: HelmStub
+    steps:
+    - script: echo "Helm Stage Stub"
+
+- stage: StageID_PostBuild
+  displayName: 'Post-Build'
+  dependsOn: StageID_HelmChart
+  jobs:
+  - job: Finalize
+    steps:
+    - script: echo "Pipeline Complete"
