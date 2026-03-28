@@ -24,17 +24,27 @@ stages:
   displayName: 'Project: Build and Test'
   dependsOn: StageID_PreBuild
   variables:
-    # Отримування змінної з іншого стейджа
     APP_VERSION: $[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]
   jobs:
   - job: BuildJob
     steps:
+    - task: JavaToolInstaller@0
+      displayName: 'Install Java 21'
+      inputs:
+        versionSpec: '21'
+        jdkArchitectureOption: 'x64'
+        jdkSourceOption: 'PreInstalled'
+
     - script: echo "Building version $(APP_VERSION)"
       displayName: 'Print Version from Pre-Build'
+
     - task: Maven@3
+      displayName: 'Maven Package'
       inputs:
         mavenPomFile: 'pom.xml'
         goals: 'clean package -DskipTests'
+        javaHomeOption: 'JDKVersion'
+        jdkVersionOption: '1.21'
 
 # Docker Build, Save and Push
 - stage: StageID_BuildAndPushDockerImage
