@@ -11,9 +11,9 @@ stages:
 
 - template: templates/build-test.yml
   parameters:
-    appVersion: $[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]
+    appVersion: "$[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]"
 
 - template: templates/docker-steps.yml
   parameters:
-    appVersion: $[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]
+    appVersion: "$[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]"
     dockerRepo: $(dockerRepository)
