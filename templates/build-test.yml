@@ -1,1 +1,22 @@
-123
+parameters:
+- name: appVersion
+  type: string
+
+stages:
+- stage: StageID_BuildAndTestProject
+  displayName: 'Project: Build and Test (Template)'
+  dependsOn: StageID_PreBuild
+  jobs:
+  - job: BuildJob
+    steps:
+    - task: JavaToolInstaller@0
+      inputs:
+        versionSpec: '21'
+        jdkArchitectureOption: 'x64'
+        jdkSourceOption: 'PreInstalled'
+    - task: Maven@3
+      inputs:
+        mavenPomFile: 'pom.xml'
+        goals: 'clean package -DskipTests'
+        javaHomeOption: 'JDKVersion'
+        jdkVersionOption: '1.21'
