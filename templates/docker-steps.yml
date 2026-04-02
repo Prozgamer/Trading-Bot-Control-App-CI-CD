@@ -6,21 +6,18 @@ parameters:
 
 stages:
 - stage: StageID_BuildAndPushDockerImage
-  displayName: 'Docker: Build and Push (Template)'
+  displayName: 'Docker Build and Push'
   dependsOn: 
     - StageID_PreBuild
     - StageID_BuildAndTestProject
-  condition: and(succeeded(), eq(variables['Build.SourceBranchName'], 'main'))
   jobs:
   - job: JobID_BuildAndPushDockerImage
     steps:
     - task: Docker@2
-      displayName: 'Build and Push'
       inputs:
         containerRegistry: 'docker-hub-conn'
         repository: ${{ parameters.dockerRepo }}
         command: 'buildAndPush'
-        Dockerfile: '**/Dockerfile'
         tags: |
           ${{ parameters.appVersion }}
           latest
