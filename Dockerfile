@@ -1,4 +1,3 @@
-# --- ЭТАП 1: Сборка ---
 FROM maven:3.9.9-amazoncorretto-23 AS build
 WORKDIR /app
 COPY pom.xml ./
@@ -6,7 +5,6 @@ RUN mvn dependency:go-offline -B
 COPY . .
 RUN mvn clean package -DskipTests
 
-# --- ЭТАП 2: Запуск ---
 FROM amazoncorretto:23-alpine
 ARG AppVersion=1.0.0
 ENV APP_VERSION=$AppVersion
