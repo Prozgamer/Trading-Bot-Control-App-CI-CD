@@ -25,3 +25,13 @@ stages:
         tags: |
           $(v_Version)
           latest
+    - script: |
+        mkdir -p $(Build.ArtifactStagingDirectory)/Dockerimage
+        docker save ${{ parameters.dockerRepo }}:$(v_Version) -o $(Build.ArtifactStagingDirectory)/Dockerimage/image.tar
+      displayName: 'Save Docker image to tar'
+
+    - task: PublishPipelineArtifact@1
+      inputs:
+        targetPath: '$(Build.ArtifactStagingDirectory)/Dockerimage'
+        artifact: 'DockerImage_Archive'
+      displayName: 'Publish Artifact'
