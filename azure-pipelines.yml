@@ -7,96 +7,13 @@ variables:
     value: 'prozgamer/trading-bot'
 
 stages:
-# Stage 1: Розрахунок версії
-- stage: StageID_PreBuild
-  displayName: 'Pre-Build'
-  jobs:
-  - job: JobID_PreBuild
-    steps:
-    - script: |
-        VERSION="1.0.$(Build.BuildId)"
-        echo "##vso[task.setvariable variable=APP_VERSION;isOutput=true]$VERSION"
-      name: CalculateAppVersion
-      displayName: 'Calculate Application Version'
+- template: templates/pre-build.yml
 
-# Stage 2: збірка JAR
-- stage: StageID_BuildAndTestProject
-  displayName: 'Project: Build and Test'
-  dependsOn: StageID_PreBuild
-  variables:
-    APP_VERSION: $[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]
-  jobs:
-  - job: BuildJob
-    steps:
-    - task: JavaToolInstaller@0
-      inputs:
-        versionSpec: '21'
-        jdkArchitectureOption: 'x64'
-        jdkSourceOption: 'PreInstalled'
-    - task: Maven@3
-      inputs:
-        mavenPomFile: 'pom.xml'
-        goals: 'clean package -DskipTests'
-        javaHomeOption: 'JDKVersion'
-        jdkVersionOption: '1.21'
+- template: templates/build-test.yml
+  parameters:
+    appVersion: $[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]
 
-# Stage 3: Docker (залежить від PreBuild для версії і від BuildAndTestProject для JAR)
-- stage: StageID_BuildAndPushDockerImage
-  displayName: 'Docker: Build and Push'
-  dependsOn: 
-    - StageID_PreBuild
-    - StageID_BuildAndTestProject
-  condition: and(succeeded(), eq(variables['Build.SourceBranchName'], 'main'))
-  variables:
-    APP_VERSION: $[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]
-  jobs:
-  - job: JobID_BuildAndPushDockerImage
-    steps:
-    - task: Docker@2
-      displayName: 'Build Docker Image'
-      inputs:
-        command: 'build'
-        repository: $(dockerRepository)
-        dockerfile: '**/Dockerfile'
-        tags: |
-          $(APP_VERSION)
-          latest
-
-    - script: |
-        mkdir -p $(Build.ArtifactStagingDirectory)/Dockerimage
-        docker save $(dockerRepository):$(APP_VERSION) -o $(Build.ArtifactStagingDirectory)/Dockerimage/image.tar
-      displayName: 'Save Docker image to tar'
-
-    - task: PublishPipelineArtifact@1
-      displayName: 'Publish Docker Tar Artifact'
-      inputs:
-        targetPath: '$(Build.ArtifactStagingDirectory)/Dockerimage'
-        artifact: 'DockerImage_Archive'
-
-    - task: Docker@2
-      displayName: 'Push to Docker Registry'
-      inputs:
-        containerRegistry: 'docker-hub-conn'
-        repository: $(dockerRepository)
-        command: 'push'
-        tags: |
-          $(APP_VERSION)
-          latest
-
-# Stage 4: Helm Stub
-- stage: StageID_HelmChart
-  displayName: 'Helm Chart: Pack'
-  dependsOn: StageID_BuildAndPushDockerImage
-  jobs:
-  - job: HelmStub
-    steps:
-    - script: echo "Helm Stage Stub"
-
-# Stage 5: Post-Build
-- stage: StageID_PostBuild
-  displayName: 'Post-Build'
-  dependsOn: StageID_HelmChart
-  jobs:
-  - job: Finalize
-    steps:
-    - script: echo "Pipeline Complete"
+- template: templates/docker-steps.yml
+  parameters:
+    appVersion: $[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]
+    dockerRepo: $(dockerRepository)
