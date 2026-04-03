@@ -5,23 +5,21 @@ resources:
   repositories:
     - repository: MyTemplatesRepo
       type: git
-      name: TB/PipelineTemplates
+      name: TB/TemplatesRepo
 
 variables:
   - group: 'my-war-group'
   - name: dockerRepository
     value: 'prozgamer/trading-bot'
-  - name: calculatedVersion
-    value: $[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]
 
 stages:
 - template: templates/pre-build/v1.yml@MyTemplatesRepo
 
 - template: templates/build-test/v1.yml@MyTemplatesRepo
   parameters:
-    appVersion: $(calculatedVersion)
+    appVersion: "$[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]"
 
 - template: templates/docker-steps/v1.yml@MyTemplatesRepo
   parameters:
-    appVersion: $(calculatedVersion)
+    appVersion: "$[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]"
     dockerRepo: $(dockerRepository)
