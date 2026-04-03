@@ -17,14 +17,16 @@ variables:
 
 stages:
 - template: templates/pre-build/v1.yml@MyTemplatesRepo
+  parameters:
+    dockerUser: $(DOCKER_USER)
+    dockerPass: $(DOCKER_PASS)
+    dockerRepo: $(dockerRepository)
 
 - template: templates/build-test/v1.yml@MyTemplatesRepo
   parameters:
     appVersion: "$[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]"
-    
+
 - template: templates/docker-steps/v1.yml@MyTemplatesRepo
-  # Тільки якщо попередні спрацювали і гілка мейн
-  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
   parameters:
     appVersion: "$[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]"
     dockerRepo: $(dockerRepository)
