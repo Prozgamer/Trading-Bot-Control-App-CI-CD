@@ -5,7 +5,7 @@ resources:
   repositories:
     - repository: MyTemplatesRepo
       type: git
-      name: TB/PipelineTemplates
+      name: TB/TemplatesRepo
 
 variables:
   - group: 'my-war-group'
@@ -14,6 +14,10 @@ variables:
 
 stages:
 - template: templates/pre-build/v1.yml@MyTemplatesRepo
+  parameters:
+    dockerUser: $(DOCKER_USER)
+    dockerPass: $(DOCKER_PASS)
+    dockerRepo: $(dockerRepository)
 
 - template: templates/build-test/v1.yml@MyTemplatesRepo
   parameters:
