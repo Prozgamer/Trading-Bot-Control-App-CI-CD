@@ -3,9 +3,9 @@ trigger:
 
 resources:
   repositories:
-    - repository: MyTemplatesRepo 
+    - repository: MyTemplatesRepo
       type: git
-      name: TB/TemplatesRepo # ВАЖНО: Замени MyProject на имя своего проекта в Azure
+      name: TB/TemplatesRepo
 
 variables:
   - group: 'my-war-group'
@@ -15,12 +15,13 @@ variables:
     value: $[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]
 
 stages:
-- template: templates/pre-build.yml 
-- template: templates/build-test.yml
+- template: templates/pre_build/v1.yml@MyTemplatesRepo
+
+- template: templates/build_test/v1.yml@MyTemplatesRepo
   parameters:
     appVersion: $(calculatedVersion)
 
-- template: templates/build_and_push/v1/docker-steps.yml@MyTemplatesRepo
+- template: templates/build_and_push/v1.yml@MyTemplatesRepo
   parameters:
     appVersion: $(calculatedVersion)
     dockerRepo: $(dockerRepository)
