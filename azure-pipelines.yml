@@ -5,7 +5,7 @@ resources:
   repositories:
     - repository: MyTemplatesRepo
       type: git
-      name: TB/TemplatesRepo
+      name: TB/PipelineTemplates
 
 variables:
   - group: 'my-war-group'
