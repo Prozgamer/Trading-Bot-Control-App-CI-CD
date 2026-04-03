@@ -1,19 +1,26 @@
 trigger:
 - main
 
+resources:
+  repositories:
+    - repository: MyTemplatesRepo 
+      type: git
+      name: TB/TemplatesRepo # ВАЖНО: Замени MyProject на имя своего проекта в Azure
+
 variables:
   - group: 'my-war-group'
   - name: dockerRepository
     value: 'prozgamer/trading-bot'
+  - name: calculatedVersion
+    value: $[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]
 
 stages:
-- template: templates/pre-build.yml
-
+- template: templates/pre-build.yml 
 - template: templates/build-test.yml
   parameters:
-    appVersion: "$[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]"
+    appVersion: $(calculatedVersion)
 
-- template: templates/docker-steps.yml
+- template: templates/build_and_push/v1/docker-steps.yml@MyTemplatesRepo
   parameters:
-    appVersion: "$[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]"
+    appVersion: $(calculatedVersion)
     dockerRepo: $(dockerRepository)
