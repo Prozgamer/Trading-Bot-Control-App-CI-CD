@@ -15,13 +15,13 @@ variables:
     value: $[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]
 
 stages:
-- template: templates/pre_build/v1.yml@MyTemplatesRepo
+- template: templates/pre-build/v1.yml@MyTemplatesRepo
 
-- template: templates/build_test/v1.yml@MyTemplatesRepo
+- template: templates/build-test/v1.yml@MyTemplatesRepo
   parameters:
     appVersion: $(calculatedVersion)
 
-- template: templates/build_and_push/v1.yml@MyTemplatesRepo
+- template: templates/docker-steps/v1.yml@MyTemplatesRepo
   parameters:
     appVersion: $(calculatedVersion)
     dockerRepo: $(dockerRepository)
