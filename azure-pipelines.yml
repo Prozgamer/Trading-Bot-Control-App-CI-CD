@@ -1,8 +1,8 @@
 trigger:
   branches:
     include:
-    - main
-    - feature/*
+      - main
+      - feature/*
 
 resources:
   repositories:
@@ -14,19 +14,44 @@ variables:
   - group: 'my-war-group'
   - name: dockerRepository
     value: 'prozgamer/trading-bot'
+  - name: migrationRepository
+    value: 'prozgamer/migration-job'
 
 stages:
-- template: templates/pre-build/v1.yml@MyTemplatesRepo
-  parameters:
-    dockerUser: $(DOCKER_USER)
-    dockerPass: $(DOCKER_PASS)
-    dockerRepo: $(dockerRepository)
+  - template: templates/pre-build/v1.yml@MyTemplatesRepo
+    parameters:
+      dockerUser: $(DOCKER_USER)
+      dockerPass: $(DOCKER_PASS)
+      dockerRepo: $(dockerRepository)
 
-- template: templates/build-test/v1.yml@MyTemplatesRepo
-  parameters:
-    appVersion: "$[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]"
+  - template: templates/build-test/v1.yml@MyTemplatesRepo
+    parameters:
+      appVersion: "$[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]"
 
-- template: templates/docker-steps/v1.yml@MyTemplatesRepo
-  parameters:
-    appVersion: "$[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]"
-    dockerRepo: $(dockerRepository)
+  - template: templates/docker-steps/v1.yml@MyTemplatesRepo
+    parameters:
+      appVersion: "$[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]"
+      dockerRepo: $(dockerRepository)
+
+  # Этап сборки только "инструкций" для базы (Б1)
+  - stage: BuildMigration
+    displayName: 'Build and Push Migration Image'
+    dependsOn: StageID_PreBuild
+    variables:
+      appVersion: "$[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]"
+    jobs:
+      - job: BuildMigrationJob
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: Docker@2
+            displayName: 'Build and Push Migration Job'
+            inputs:
+              containerRegistry: 'docker-hub-connection'
+              repository: $(migrationRepository)
+              command: 'buildAndPush'
+              Dockerfile: 'migration-service/Dockerfile'
+              buildContext: 'migration-service'
+              tags: |
+                $(appVersion)
+                latest
