@@ -47,7 +47,7 @@ stages:
           - task: Docker@2
             displayName: 'Build and Push Migration Job'
             inputs:
-              containerRegistry: 'docker-hub-connection'
+              containerRegistry: 'docker-hub-conn'
               repository: $(migrationRepository)
               command: 'buildAndPush'
               Dockerfile: 'migration-service/Dockerfile'
