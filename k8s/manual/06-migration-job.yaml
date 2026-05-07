@@ -1,0 +1,47 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: users-db-migration-job
+  namespace: trading-bot-ns
+spec:
+  template:
+    metadata:
+      labels:
+        app: migration
+    spec:
+      containers:
+        - name: migration-container
+          image: prozgamer/migration-job:latest
+          env:
+            - name: SPRING_DATASOURCE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: users-api-secret
+                  key: connection_string
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: users-api-secret
+                  key: username
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: users-api-secret
+                  key: password
+            - name: FLYWAY_URL
+              valueFrom:
+                secretKeyRef:
+                  name: users-api-secret
+                  key: connection_string
+            - name: FLYWAY_USER
+              valueFrom:
+                secretKeyRef:
+                  name: users-api-secret
+                  key: username
+            - name: FLYWAY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: users-api-secret
+                  key: password
+      restartPolicy: OnFailure
+  ttlSecondsAfterFinished: 100

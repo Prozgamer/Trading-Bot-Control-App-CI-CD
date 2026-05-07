@@ -1,8 +1,22 @@
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 CREATE TABLE users (
-    id SERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-INSERT INTO users (name, email) VALUES ('Admin', 'admin@example.com');
+INSERT INTO users (id, name, email) VALUES ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'Admin', 'admin@example.com');
+
+CREATE TABLE trading_accounts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id_of_user user_id UUID NOT NULL,
+    login VARCHAR(255) NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    server VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    CONSTRAINT fk_user FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+INSERT INTO trading_accounts (id, id_of_user, login, password, server) VALUES ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', '1','Admin', '123pass', 'metatrader86');

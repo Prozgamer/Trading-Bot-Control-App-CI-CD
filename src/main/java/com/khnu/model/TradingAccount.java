@@ -1,27 +1,41 @@
 package com.khnu.model;
 
+import jakarta.persistence.*;
+
+
 import java.util.UUID;
 
+@Entity
+@Table(name = "trading_accounts")
 public class TradingAccount {
+    @Id
     private UUID id;
+
+    @ManyToOne
+    @JoinColumn(name = "user_id")
+    private User user;
     private String mtLogin;
     private String mtPassword;
     private String server;
-    private String timeframe;
+    private String Htimeframe;
+    private String Ltimeframe;
     private boolean isRunning;
 
     public TradingAccount() {
     }
 
-    public TradingAccount(String mtLogin, String mtPassword, String server, String timeframe) {
+    public TradingAccount(String mtLogin, String mtPassword, String server, String Htimeframe, String Ltimeframe) {
         this.id = UUID.randomUUID();
         this.mtLogin = mtLogin;
         this.mtPassword = mtPassword;
         this.server = server;
-        this.timeframe = timeframe;
+        this.Htimeframe = Htimeframe;
+        this.Ltimeframe = Ltimeframe;
         this.isRunning = false; // By default
     }
 
+    public User getUser() { return user; }
+    public void setUser(User user) { this.user = user; }
 
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
@@ -35,8 +49,11 @@ public class TradingAccount {
     public String getServer() { return server; }
     public void setServer(String server) { this.server = server; }
 
-    public String getTimeframe() { return timeframe; }
-    public void setTimeframe(String timeframe) { this.timeframe = timeframe; }
+    public String getHTimeframe() { return Htimeframe; }
+    public void setHTimeframe(String timeframe) { this.Htimeframe = timeframe; }
+
+    public String getLTimeframe() { return Ltimeframe; }
+    public void setLTimeframe(String timeframe) { this.Ltimeframe = timeframe; }
 
     public boolean isRunning() { return isRunning; }
     public void setRunning(boolean running) { isRunning = running; }

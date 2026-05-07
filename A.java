@@ -1,1 +1,0 @@
-git commit -m "Complete Lab 8: Added Azure Pipeline for migration job (B1)"

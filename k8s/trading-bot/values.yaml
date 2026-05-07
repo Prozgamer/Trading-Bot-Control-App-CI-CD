@@ -1,0 +1,29 @@
+# API
+api:
+  image:
+    repository: prozgamer/trading-bot
+    tag: latest
+  service:
+    type: LoadBalancer
+    port: 80
+
+# DB
+database:
+  username: "my_user"
+  password: "my_password"
+  dbName: "trading_db"
+  host: "postgres-headless"
+  port: 5432
+
+# migration
+migration:
+  image:
+    repository: prozgamer/migration-job
+    tag: latest
+
+# GLobal settings
+testMode: "true"
+
+ingress:
+  enabled: true
+  host: trading-bot.local

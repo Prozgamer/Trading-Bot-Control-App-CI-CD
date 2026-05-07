@@ -1,37 +1,48 @@
 package com.khnu.service;
 
 import java.util.*;
+
+import com.khnu.Repository.AccountsRepository;
+import com.khnu.Repository.UserRepository;
+import jakarta.transaction.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.khnu.model.User;
 import com.khnu.model.TradingAccount;
 
 @Service
 public class UserService implements IUserService {
-    private final Map<UUID, User> users = new HashMap<>();
+    @Autowired
+    UserRepository userRepository;
+
+    @Autowired
+    AccountsRepository accountsRepository;
 
     @Override
     public User createUser(String login, String password) {
         User user = new User(login, password);
-        users.put(user.getId(), user);
+        userRepository.save(user);
         return user;
     }
 
     @Override
     public Optional<User> getUserById(UUID id) {
-        return Optional.ofNullable(users.get(id));
+        return userRepository.findById(id);
     }
 
     @Override
     public List<User> getAllUsers() {
-        return new ArrayList<>(users.values());
+        return new ArrayList<>(userRepository.findAll());
     }
 
     @Override
     public boolean updateUser(UUID id, String login, String password) {
-        User user = users.get(id);
-        if (user != null) {
+        Optional<User> userOptional = userRepository.findById(id);
+        if (userOptional.isPresent()) {
+            User user = userOptional.get();
             user.setLogin(login);
             user.setPassword(password);
+            userRepository.save(user);
             return true;
         }
         return false;
@@ -39,44 +50,37 @@ public class UserService implements IUserService {
 
     @Override
     public boolean deleteUser(UUID id) {
-        return users.remove(id) != null;
-    }
-
-    @Override
-    public void addAccountToUser(UUID userId, TradingAccount account) {
-        User user = users.get(userId);
-        if (user != null) {
-            // Генерируем ID для нового счета, если его нет
-            if (account.getId() == null) {
-                account.setId(UUID.randomUUID());
-            }
-            user.addTradingAccount(account); // Вызываем тот метод с буквой 't', который мы исправили
-        } else {
-            throw new RuntimeException("User not found with id: " + userId);
-        }
-    }
-
-    @Override
-    public boolean updateUserProfile(UUID userId, String email, String password) {
-        User user = users.get(userId);
-        if (user != null) {
-            // Если в модели User появилось поле email, обновляем его
-            // user.setEmail(email);
-            user.setPassword(password);
+        if (userRepository.existsById(id)) {
+            userRepository.deleteById(id);
             return true;
         }
         return false;
     }
+    @Override
+    @Transactional
+    public void addAccountToUser(UUID userId, TradingAccount account) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
+        if (account.getId() == null) {
+            account.setId(UUID.randomUUID());
+        }
+        account.setUser(user);
+        accountsRepository.save(account);
+    }
+
+    @Override
+    public boolean updateUserProfile(UUID userId, String email, String password) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
+            user.setEmail(email); // Ты принимаешь email в аргументах, но не обновляешь его
+            user.setPassword(password);
+            userRepository.save(user);
+            return true;
+    }
 
     @Override
     public Optional<TradingAccount> getAccountById(UUID userId, UUID accountId) {
-        User user = users.get(userId);
-        if (user != null) {
-            return user.getTradingAccounts().stream()
-                    .filter(acc -> acc.getId().equals(accountId))
-                    .findFirst();
-        }
-        return Optional.empty();
+        return accountsRepository.findById(accountId);
     }
 
 }

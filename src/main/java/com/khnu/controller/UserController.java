@@ -24,7 +24,7 @@ public class UserController {
 
     // 1. Реєстрація
     @PostMapping("/register")
-    public ResponseEntity<User> register(@Valid @RequestBody User user) { // <-- @Valid обов'язково!
+    public ResponseEntity<User> register(@Valid @RequestBody User user) {
         User createdUser = userService.createUser(user.getLogin(), user.getPassword());
         return new ResponseEntity<>(createdUser, HttpStatus.CREATED);
     }
