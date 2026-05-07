@@ -55,3 +55,9 @@ stages:
               tags: |
                 $(appVersion)
                 latest
+  - template: templates/helm-steps/v1.yml@MyTemplatesRepo
+    parameters:
+      dockerUser: $(DOCKER_USER)
+      dockerPass: $(DOCKER_PASS)
+      chartPath: 'k8s/trading-bot'
+      ociRegistry: 'registry-1.docker.io/prozgamer'                
