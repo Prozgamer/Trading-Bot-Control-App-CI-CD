@@ -33,6 +33,7 @@ stages:
       appVersion: "$[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]"
       dockerRepo: $(dockerRepository)
 
+  # Этап сборки образа для миграций БД
   - stage: BuildMigration
     displayName: 'Build and Push Migration Image'
     dependsOn: StageID_PreBuild
@@ -62,6 +63,7 @@ stages:
       chartPath: 'k8s/trading-bot'
       ociRegistry: 'registry-1.docker.io/prozgamer'
 
+
   - stage: UpdateArgoCD
     displayName: 'Update ArgoCD State'
     jobs:
@@ -69,20 +71,37 @@ stages:
         pool:
           vmImage: 'ubuntu-latest'
         steps:
+
           - checkout: self
             persistCredentials: true
 
           - bash: |
+              set -e # Остановить выполнение при любой ошибке
+
               CHART_VERSION=$(grep '^version:' k8s/trading-bot/Chart.yaml | awk '{print $2}' | tr -d '"' | tr -d "'")
-              echo "Target Version: $CHART_VERSION"
+              echo "Detected Chart Version: $CHART_VERSION"
+
               git config --global user.email "devops@azure.com"
               git config --global user.name "Azure DevOps Pipeline"
-              git clone https://$(SYSTEM_ACCESSTOKEN)@dev.azure.com/BohdanCS24/TB/_git/trading-bot-state
+
+
+              echo "Cloning state repository..."
+              git clone https://any-user:$(SYSTEM_ACCESSTOKEN)@dev.azure.com/BohdanCS24/TB/_git/trading-bot-state
+              
               cd trading-bot-state
+
+              echo "Updating targetRevision to $CHART_VERSION in application.yaml"
               sed -i "s/targetRevision: .*/targetRevision: $CHART_VERSION/" application.yaml
+
               git add application.yaml
-              git commit -m "Update ArgoCD to version $CHART_VERSION [skip ci]"
-              git push origin main
+              
+              if git diff --staged --quiet; then
+                echo "No changes to commit (version already up to date)."
+              else
+                git commit -m "Update ArgoCD to version $CHART_VERSION [skip ci]"
+                echo "Pushing changes to trading-bot-state..."
+                git push https://any-user:$(SYSTEM_ACCESSTOKEN)@dev.azure.com/BohdanCS24/TB/_git/trading-bot-state main
+              fi
             displayName: 'Update targetRevision in State Repo'
             env:
               SYSTEM_ACCESSTOKEN: $(System.AccessToken)
