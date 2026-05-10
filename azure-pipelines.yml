@@ -9,7 +9,6 @@ resources:
     - repository: MyTemplatesRepo
       type: git
       name: TB/PipelineTemplates
-    # ДОБАВИЛИ ЭТОТ БЛОК, чтобы пайплайн "видел" репозиторий состояния
     - repository: stateRepo
       type: git
       name: trading-bot-state
@@ -75,36 +74,37 @@ stages:
         steps:
           - checkout: self
             persistCredentials: true
-          # ДОПОЛНИТЕЛЬНО чекаутим репозиторий состояния, чтобы права точно подхватились
           - checkout: stateRepo
             persistCredentials: true
 
           - bash: |
               set -e
-              # 1. Возвращаемся в папку основного проекта, чтобы прочитать версию
-              cd $(Build.SourcesDirectory)/Main\ Bot
+              cd $(Build.SourcesDirectory)/"Main Bot"
               CHART_VERSION=$(grep '^version:' k8s/trading-bot/Chart.yaml | awk '{print $2}' | tr -d '"' | tr -d "'")
               echo "Detected Chart Version: $CHART_VERSION"
 
-              # 2. Настройка Git
-              git config --global user.email "devops@azure.com"
-              git config --global user.name "Azure DevOps Pipeline"
-
-              # 3. Переходим в папку репозитория состояния (он уже скачан чекаутом)
               cd $(Build.SourcesDirectory)/trading-bot-state
 
+              # 3. Настройка Git и ПЕРЕКЛЮЧЕНИЕ на ветку
+              git config --global user.email "devops@azure.com"
+              git config --global user.name "Azure DevOps Pipeline"
+              
+              # Выходим из состояния detached HEAD
+              git checkout main || git checkout master
+              git pull origin $(git branch --show-current)
+
               # 4. Обновление версии
-              echo "Updating targetRevision to $CHART_VERSION"
+              echo "Updating targetRevision to $CHART_VERSION in application.yaml"
               sed -i "s/targetRevision: .*/targetRevision: $CHART_VERSION/" application.yaml
 
-              # 5. Пуш (теперь через системный токен, который видит оба репо)
+              # 5. Коммит и Пуш
               git add application.yaml
               
               if git diff --staged --quiet; then
                 echo "No changes to commit."
               else
                 git commit -m "Update ArgoCD to version $CHART_VERSION [skip ci]"
-                # Используем встроенный токен авторизации
-                git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin main
+                # Пушим в текущую активную ветку
+                git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin HEAD:$(git branch --show-current)
               fi
             displayName: 'Update targetRevision in State Repo'
