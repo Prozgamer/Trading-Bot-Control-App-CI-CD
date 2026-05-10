@@ -72,39 +72,42 @@ stages:
         pool:
           vmImage: 'ubuntu-latest'
         steps:
+          # Явно указываем папки для скачивания
           - checkout: self
+            path: s/main
             persistCredentials: true
+
           - checkout: stateRepo
+            path: s/state
             persistCredentials: true
 
           - bash: |
               set -e
-              cd $(Build.SourcesDirectory)/"Main Bot"
+              
+              # 1. Читаем версию из основного репо
+              # Папка s/main соответствует checkout: self
+              cd $(Pipeline.Workspace)/s/main
               CHART_VERSION=$(grep '^version:' k8s/trading-bot/Chart.yaml | awk '{print $2}' | tr -d '"' | tr -d "'")
               echo "Detected Chart Version: $CHART_VERSION"
 
-              cd $(Build.SourcesDirectory)/trading-bot-state
-
-              # 3. Настройка Git и ПЕРЕКЛЮЧЕНИЕ на ветку
+              # 2. Настраиваем Git в репо состояния
+              cd $(Pipeline.Workspace)/s/state
               git config --global user.email "devops@azure.com"
               git config --global user.name "Azure DevOps Pipeline"
               
-              # Выходим из состояния detached HEAD
+              # Принудительно встаем на ветку
               git checkout main || git checkout master
-              git pull origin $(git branch --show-current)
-
-              # 4. Обновление версии
-              echo "Updating targetRevision to $CHART_VERSION in application.yaml"
+              
+              # 3. Обновляем файл
+              echo "Updating application.yaml..."
               sed -i "s/targetRevision: .*/targetRevision: $CHART_VERSION/" application.yaml
 
-              # 5. Коммит и Пуш
+              # 4. Пушим
               git add application.yaml
-              
               if git diff --staged --quiet; then
-                echo "No changes to commit."
+                echo "No changes."
               else
                 git commit -m "Update ArgoCD to version $CHART_VERSION [skip ci]"
-                # Пушим в текущую активную ветку
-                git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin HEAD:$(git branch --show-current)
+                git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin HEAD:main
               fi
-            displayName: 'Update targetRevision in State Repo'
+            displayName: 'GitOps Push'
