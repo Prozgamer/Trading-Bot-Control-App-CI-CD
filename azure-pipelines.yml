@@ -71,37 +71,39 @@ stages:
         pool:
           vmImage: 'ubuntu-latest'
         steps:
-
           - checkout: self
             persistCredentials: true
 
           - bash: |
-              set -e # Остановить выполнение при любой ошибке
-
+              set -e
+              # 1. Извлекаем версию
               CHART_VERSION=$(grep '^version:' k8s/trading-bot/Chart.yaml | awk '{print $2}' | tr -d '"' | tr -d "'")
               echo "Detected Chart Version: $CHART_VERSION"
 
+              # 2. Настройка Git
               git config --global user.email "devops@azure.com"
               git config --global user.name "Azure DevOps Pipeline"
 
-
+              # 3. Клонирование 
+              # Используем переменную окружения через $TOKEN, чтобы избежать ошибок парсинга URL
               echo "Cloning state repository..."
-              git clone https://any-user:$(SYSTEM_ACCESSTOKEN)@dev.azure.com/BohdanCS24/TB/_git/trading-bot-state
+              git clone https://any-user:$TOKEN@dev.azure.com/BohdanCS24/TB/_git/trading-bot-state
               
               cd trading-bot-state
 
-              echo "Updating targetRevision to $CHART_VERSION in application.yaml"
+              # 4. Обновление версии
+              echo "Updating targetRevision to $CHART_VERSION"
               sed -i "s/targetRevision: .*/targetRevision: $CHART_VERSION/" application.yaml
 
+              # 5. Пуш
               git add application.yaml
               
               if git diff --staged --quiet; then
-                echo "No changes to commit (version already up to date)."
+                echo "No changes to commit."
               else
                 git commit -m "Update ArgoCD to version $CHART_VERSION [skip ci]"
-                echo "Pushing changes to trading-bot-state..."
-                git push https://any-user:$(SYSTEM_ACCESSTOKEN)@dev.azure.com/BohdanCS24/TB/_git/trading-bot-state main
+                git push https://any-user:$TOKEN@dev.azure.com/BohdanCS24/TB/_git/trading-bot-state main
               fi
             displayName: 'Update targetRevision in State Repo'
             env:
-              SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+              TOKEN: $(System.AccessToken)
