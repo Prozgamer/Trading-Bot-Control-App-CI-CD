@@ -72,7 +72,6 @@ stages:
         pool:
           vmImage: 'ubuntu-latest'
         steps:
-          # Явно указываем папки для скачивания
           - checkout: self
             path: s/main
             persistCredentials: true
@@ -83,31 +82,26 @@ stages:
 
           - bash: |
               set -e
-              
-              # 1. Читаем версию из основного репо
-              # Папка s/main соответствует checkout: self
               cd $(Pipeline.Workspace)/s/main
               CHART_VERSION=$(grep '^version:' k8s/trading-bot/Chart.yaml | awk '{print $2}' | tr -d '"' | tr -d "'")
               echo "Detected Chart Version: $CHART_VERSION"
 
-              # 2. Настраиваем Git в репо состояния
               cd $(Pipeline.Workspace)/s/state
               git config --global user.email "devops@azure.com"
               git config --global user.name "Azure DevOps Pipeline"
               
-              # Принудительно встаем на ветку
-              git checkout main || git checkout master
+              # Жестко привязываемся к ветке main
+              git fetch origin main
+              git checkout -B main origin/main
               
-              # 3. Обновляем файл
               echo "Updating application.yaml..."
               sed -i "s/targetRevision: .*/targetRevision: $CHART_VERSION/" application.yaml
 
-              # 4. Пушим
               git add application.yaml
               if git diff --staged --quiet; then
                 echo "No changes."
               else
                 git commit -m "Update ArgoCD to version $CHART_VERSION [skip ci]"
-                git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin HEAD:main
+                git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin main
               fi
             displayName: 'GitOps Push'
