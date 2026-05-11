@@ -73,54 +73,45 @@ stages:
       - job: UpdateManifest
         pool: { vmImage: 'ubuntu-latest' }
         steps:
-          # Клонируем оба репозитория
           - checkout: self
+            path: s/main    # Теперь код бота ВСЕГДА в папке 'main'
             persistCredentials: true
           - checkout: stateRepo
+            path: s/state   # Теперь стейт ВСЕГДА в папке 'state'
             persistCredentials: true
 
           - bash: |
               set -e
               
-              # 1. Определяем, где мы находимся
-              # Обычно $(Pipeline.Workspace)/s - это корень, где лежат все чекауты
-              ROOT_DIR="$(Pipeline.Workspace)/s"
-              
-              # Ищем папку основного бота (там, где лежит Chart.yaml)
-              # Ищем по наличию характерного пути внутри
-              MAIN_BOT_DIR=$(find $ROOT_DIR -maxdepth 3 -name "Chart.yaml" -exec dirname {} \; | grep "trading-bot" | head -n 1 | xargs dirname | xargs dirname)
-              
-              # Ищем папку стейт-репозитория (там, где лежит application.yaml)
-              STATE_REPO_DIR=$(find $ROOT_DIR -maxdepth 2 -name "application.yaml" -exec dirname {} \; | head -n 1)
-
-              echo "Found Main Bot at: $MAIN_BOT_DIR"
-              echo "Found State Repo at: $STATE_REPO_DIR"
+              # Теперь мы точно знаем, где что лежит благодаря параметру 'path' в checkout
+              MAIN_DIR="$(Pipeline.Workspace)/s/main"
+              STATE_DIR="$(Pipeline.Workspace)/s/state"
 
               git config --global user.email "devops@azure.com"
               git config --global user.name "Azure DevOps Pipeline"
 
               # --- ШАГ 1: Обновляем Chart.yaml ---
-              cd "$MAIN_BOT_DIR"
-              echo "Updating Chart.yaml version to $(appVersion)..."
-              sed -i "s/^version: .*/version: $(appVersion)/" k8s/trading-bot/Chart.yaml
-              
-              git add k8s/trading-bot/Chart.yaml
-              # Коммитим, только если есть изменения
-              if ! git diff --staged --quiet; then
-                git commit -m "Bump Chart version to $(appVersion) [skip ci]"
+              echo "Updating Chart.yaml in $MAIN_DIR"
+              cd "$MAIN_DIR"
+              # Проверяем, существует ли файл перед sed
+              if [ -f "k8s/trading-bot/Chart.yaml" ]; then
+                sed -i "s/^version: .*/version: $(appVersion)/" k8s/trading-bot/Chart.yaml
+                git add k8s/trading-bot/Chart.yaml
+                git commit -m "Bump Chart version to $(appVersion) [skip ci]" || echo "No changes in Chart"
                 git push origin HEAD:main
               else
-                echo "No changes in Chart.yaml"
+                echo "##[error]Chart.yaml not found at k8s/trading-bot/Chart.yaml"
+                exit 1
               fi
 
               # --- ШАГ 2: Обновляем application.yaml ---
-              cd "$STATE_REPO_DIR"
+              echo "Updating application.yaml in $STATE_DIR"
+              cd "$STATE_DIR"
               git fetch origin main
               git checkout main
-
-              echo "Updating targetRevision to $(appVersion) in application.yaml..."
+              
               sed -i "s/targetRevision: .*/targetRevision: $(appVersion)/" application.yaml
-
+              
               git add application.yaml
               if ! git diff --staged --quiet; then
                 git commit -m "Update ArgoCD to $(appVersion) [skip ci]"
@@ -128,4 +119,4 @@ stages:
               else
                 echo "No changes in application.yaml"
               fi
-            displayName: 'Final Version Sync'
+            displayName: 'Final Version Sync with Explicit Paths'
