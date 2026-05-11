@@ -86,18 +86,18 @@ stages:
 
           - bash: |
               set -e
-              cd $(Pipeline.Workspace)/s/state
+              # Исправленный путь: Azure кладет репо в папку с его реальным именем
+              cd $(Pipeline.Workspace)/s/trading-bot-state
               
               git config --global user.email "devops@azure.com"
               git config --global user.name "Azure DevOps Pipeline"
               
-              # Гарантируем, что мы на main
               git fetch origin main
               git checkout main
 
               echo "Setting targetRevision to $(appVersion) in application.yaml"
               
-              # ОДНА КОМАНДА, которая меняет всё:
+              # Меняем версию
               sed -i "s/targetRevision: .*/targetRevision: $(appVersion)/" application.yaml
 
               git add application.yaml
@@ -105,7 +105,6 @@ stages:
                 echo "No changes needed."
               else
                 git commit -m "Bump version to $(appVersion) [skip ci]"
-                # Используем токен пайплайна для пуша обратно в Azure DevOps
                 git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin main
               fi
             displayName: 'GitOps Magic: Update State Repo'
