@@ -11,7 +11,7 @@ spec:
     spec:
       containers:
         - name: migration-container
-          image: "{{ .Values.migration.image.repository }}:{{ .Values.migration.image.tag | default .Chart.Version }}"
+          image: "{{ .Values.api.image.repository }}:{{ .Chart.Version }}"
           env:
             - name: SPRING_DATASOURCE_URL
               valueFrom:
