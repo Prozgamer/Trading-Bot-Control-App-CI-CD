@@ -81,32 +81,51 @@ stages:
 
           - bash: |
               set -e
+              
+              # 1. Определяем, где мы находимся
+              # Обычно $(Pipeline.Workspace)/s - это корень, где лежат все чекауты
+              ROOT_DIR="$(Pipeline.Workspace)/s"
+              
+              # Ищем папку основного бота (там, где лежит Chart.yaml)
+              # Ищем по наличию характерного пути внутри
+              MAIN_BOT_DIR=$(find $ROOT_DIR -maxdepth 3 -name "Chart.yaml" -exec dirname {} \; | grep "trading-bot" | head -n 1 | xargs dirname | xargs dirname)
+              
+              # Ищем папку стейт-репозитория (там, где лежит application.yaml)
+              STATE_REPO_DIR=$(find $ROOT_DIR -maxdepth 2 -name "application.yaml" -exec dirname {} \; | head -n 1)
+
+              echo "Found Main Bot at: $MAIN_BOT_DIR"
+              echo "Found State Repo at: $STATE_REPO_DIR"
+
               git config --global user.email "devops@azure.com"
               git config --global user.name "Azure DevOps Pipeline"
 
-              # --- ШАГ 1: Обновляем Chart.yaml в основном репозитории ---
-              # (Чтобы следующая сборка не ругалась на существующую версию)
-              cd $(Build.SourcesDirectory)/Main%20Bot
-              echo "Updating Chart.yaml to version $(appVersion)"
+              # --- ШАГ 1: Обновляем Chart.yaml ---
+              cd "$MAIN_BOT_DIR"
+              echo "Updating Chart.yaml version to $(appVersion)..."
               sed -i "s/^version: .*/version: $(appVersion)/" k8s/trading-bot/Chart.yaml
               
               git add k8s/trading-bot/Chart.yaml
-              git commit -m "Bump Chart version to $(appVersion) [skip ci]" || echo "No changes in Chart"
-              git push origin HEAD:main
+              # Коммитим, только если есть изменения
+              if ! git diff --staged --quiet; then
+                git commit -m "Bump Chart version to $(appVersion) [skip ci]"
+                git push origin HEAD:main
+              else
+                echo "No changes in Chart.yaml"
+              fi
 
-              # --- ШАГ 2: Обновляем application.yaml в стейт репозитории ---
-              cd $(Build.SourcesDirectory)/trading-bot-state
+              # --- ШАГ 2: Обновляем application.yaml ---
+              cd "$STATE_REPO_DIR"
               git fetch origin main
               git checkout main
 
-              echo "Updating targetRevision to $(appVersion) in application.yaml"
+              echo "Updating targetRevision to $(appVersion) in application.yaml..."
               sed -i "s/targetRevision: .*/targetRevision: $(appVersion)/" application.yaml
 
               git add application.yaml
-              if git diff --staged --quiet; then
-                echo "No changes in application.yaml"
-              else
+              if ! git diff --staged --quiet; then
                 git commit -m "Update ArgoCD to $(appVersion) [skip ci]"
                 git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin main
+              else
+                echo "No changes in application.yaml"
               fi
-            displayName: 'Sync Chart and State Versions'
+            displayName: 'Final Version Sync'
