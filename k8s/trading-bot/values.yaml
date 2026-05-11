@@ -18,8 +18,9 @@ database:
 # migration
 migration:
   image:
-    repository: prozgamer/migration-job
-    tag: latest
+    repository: prozgamer/trading-bot
+    # tag: "16.0.8"
+    pullPolicy: IfNotPresent
 
 # GLobal settings
 testMode: "true"
