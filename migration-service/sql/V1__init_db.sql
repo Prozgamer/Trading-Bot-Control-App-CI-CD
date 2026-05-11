@@ -17,6 +17,7 @@ CREATE TABLE trading_accounts (
     login VARCHAR(255) NOT NULL,
     password VARCHAR(255) NOT NULL,
     server VARCHAR(255) NOT NULL,
+    htimeframe VARCHAR(50), -- Добавь эту строку (тип подбери под Java, обычно VARCHAR)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_user FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 );
