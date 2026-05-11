@@ -17,7 +17,7 @@ database:
 # migration
 migration:
   image:
-    repository: prozgamer/trading-bot
+    repository: prozgamer/migration-job  # БЫЛО: prozgamer/trading-bot
     pullPolicy: Always
 
 # Global settings
