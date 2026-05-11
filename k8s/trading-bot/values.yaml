@@ -2,7 +2,6 @@
 api:
   image:
     repository: prozgamer/trading-bot
-    tag: latest
   service:
     type: LoadBalancer
     port: 80
@@ -19,10 +18,9 @@ database:
 migration:
   image:
     repository: prozgamer/trading-bot
-    # tag: "16.0.8"
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
 
-# GLobal settings
+# Global settings
 testMode: "true"
 
 ingress:
