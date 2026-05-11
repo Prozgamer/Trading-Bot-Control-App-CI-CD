@@ -20,25 +20,21 @@ variables:
     value: 'prozgamer/migration-job'
 
 stages:
-  # 1. Подготовка (вычисление версии)
   - template: templates/pre-build/v1.yml@MyTemplatesRepo
     parameters:
       dockerUser: $(DOCKER_USER)
       dockerPass: $(DOCKER_PASS)
       dockerRepo: $(dockerRepository)
 
-  # 2. Сборка и Тесты
   - template: templates/build-test/v1.yml@MyTemplatesRepo
     parameters:
       appVersion: "$[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]"
 
-  # 3. Пуш основного образа (API)
   - template: templates/docker-steps/v1.yml@MyTemplatesRepo
     parameters:
       appVersion: "$[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]"
       dockerRepo: $(dockerRepository)
 
-  # 4. Сборка и Пуш миграций
   - stage: BuildMigration
     displayName: 'Build and Push Migration Image'
     dependsOn: StageID_PreBuild
@@ -46,8 +42,7 @@ stages:
       appVersion: "$[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]"
     jobs:
       - job: BuildMigrationJob
-        pool:
-          vmImage: 'ubuntu-latest'
+        pool: { vmImage: 'ubuntu-latest' }
         steps:
           - task: Docker@2
             displayName: 'Build and Push Migration'
@@ -61,7 +56,7 @@ stages:
                 $(appVersion)
                 latest
 
-  # 5. Хельм шаги (проверка чарта)
+  # Этот шаг теперь не упадет, так как мы обновим версию в Chart.yaml заранее
   - template: templates/helm-steps/v1.yml@MyTemplatesRepo
     parameters:
       dockerUser: $(DOCKER_USER)
@@ -69,42 +64,49 @@ stages:
       chartPath: 'k8s/trading-bot'
       ociRegistry: 'registry-1.docker.io/prozgamer'
 
-  # 6. ГИТОПС: Обновление ArgoCD
   - stage: UpdateArgoCD
     displayName: 'Update ArgoCD State'
-    dependsOn: StageID_PreBuild # Зависим от версии
+    dependsOn: StageID_PreBuild
     variables:
       appVersion: "$[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]"
     jobs:
       - job: UpdateManifest
-        pool:
-          vmImage: 'ubuntu-latest'
+        pool: { vmImage: 'ubuntu-latest' }
         steps:
-          # Клонируем репозиторий со стейтом (application.yaml)
+          # Клонируем оба репозитория
+          - checkout: self
+            persistCredentials: true
           - checkout: stateRepo
             persistCredentials: true
 
           - bash: |
               set -e
-              # Исправленный путь: Azure кладет репо в папку с его реальным именем
-              cd $(Pipeline.Workspace)/s/trading-bot-state
-              
               git config --global user.email "devops@azure.com"
               git config --global user.name "Azure DevOps Pipeline"
+
+              # --- ШАГ 1: Обновляем Chart.yaml в основном репозитории ---
+              # (Чтобы следующая сборка не ругалась на существующую версию)
+              cd $(Build.SourcesDirectory)/Main%20Bot
+              echo "Updating Chart.yaml to version $(appVersion)"
+              sed -i "s/^version: .*/version: $(appVersion)/" k8s/trading-bot/Chart.yaml
               
+              git add k8s/trading-bot/Chart.yaml
+              git commit -m "Bump Chart version to $(appVersion) [skip ci]" || echo "No changes in Chart"
+              git push origin HEAD:main
+
+              # --- ШАГ 2: Обновляем application.yaml в стейт репозитории ---
+              cd $(Build.SourcesDirectory)/trading-bot-state
               git fetch origin main
               git checkout main
 
-              echo "Setting targetRevision to $(appVersion) in application.yaml"
-              
-              # Меняем версию
+              echo "Updating targetRevision to $(appVersion) in application.yaml"
               sed -i "s/targetRevision: .*/targetRevision: $(appVersion)/" application.yaml
 
               git add application.yaml
               if git diff --staged --quiet; then
-                echo "No changes needed."
+                echo "No changes in application.yaml"
               else
-                git commit -m "Bump version to $(appVersion) [skip ci]"
+                git commit -m "Update ArgoCD to $(appVersion) [skip ci]"
                 git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin main
               fi
-            displayName: 'GitOps Magic: Update State Repo'
+            displayName: 'Sync Chart and State Versions'
