@@ -83,29 +83,25 @@ stages:
           - bash: |
               set -e
               
-              # Теперь мы точно знаем, где что лежит благодаря параметру 'path' в checkout
               MAIN_DIR="$(Pipeline.Workspace)/s/main"
               STATE_DIR="$(Pipeline.Workspace)/s/state"
 
               git config --global user.email "devops@azure.com"
               git config --global user.name "Azure DevOps Pipeline"
 
-              # --- ШАГ 1: Обновляем Chart.yaml ---
-              echo "Updating Chart.yaml in $MAIN_DIR"
+              # --- ШАГ 1: Пуш в Main Bot ---
               cd "$MAIN_DIR"
-              # Проверяем, существует ли файл перед sed
               if [ -f "k8s/trading-bot/Chart.yaml" ]; then
                 sed -i "s/^version: .*/version: $(appVersion)/" k8s/trading-bot/Chart.yaml
                 git add k8s/trading-bot/Chart.yaml
-                git commit -m "Bump Chart version to $(appVersion) [skip ci]" || echo "No changes in Chart"
-                git push origin HEAD:main
-              else
-                echo "##[error]Chart.yaml not found at k8s/trading-bot/Chart.yaml"
-                exit 1
+                if ! git diff --staged --quiet; then
+                  git commit -m "Bump Chart version to $(appVersion) [skip ci]"
+                  # ИСПОЛЬЗУЕМ ТОКЕН ДЛЯ АВТОРИЗАЦИИ:
+                  git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin HEAD:main
+                fi
               fi
 
-              # --- ШАГ 2: Обновляем application.yaml ---
-              echo "Updating application.yaml in $STATE_DIR"
+              # --- ШАГ 2: Пуш в State Repo ---
               cd "$STATE_DIR"
               git fetch origin main
               git checkout main
@@ -115,8 +111,7 @@ stages:
               git add application.yaml
               if ! git diff --staged --quiet; then
                 git commit -m "Update ArgoCD to $(appVersion) [skip ci]"
+                # И ТУТ ТОЖЕ ИСПОЛЬЗУЕМ ТОКЕН:
                 git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin main
-              else
-                echo "No changes in application.yaml"
               fi
-            displayName: 'Final Version Sync with Explicit Paths'
+            displayName: 'Final Sync with Auth'
