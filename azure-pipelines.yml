@@ -33,31 +33,50 @@ stages:
       appVersion: "$[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]"
 
   # 3. Пуш основного Docker образа
-  - template: templates/docker-steps/v1.yml@MyTemplatesRepo
-    parameters:
-      appVersion: "$[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]"
-      dockerRepo: $(dockerRepository)
+  - stage: BuildPushDocker
+    displayName: 'Docker: Build and Push'
+    dependsOn: StageID_PreBuild 
+    jobs:
+      - job: DockerJob
+        pool: { vmImage: 'ubuntu-latest' }
+        steps:
+          - checkout: self
+          - bash: |
+              # Читаем твою версию (16.0...) из файла
+              VERSION=$(grep '^version:' k8s/trading-bot/Chart.yaml | awk '{print $2}' | tr -d '"' | tr -d "'")
+              echo "##vso[task.setvariable variable=VERSION]$VERSION"
+            displayName: 'Extract Version'
+          - task: Docker@2
+            displayName: 'Build and Push Main App'
+            inputs:
+              containerRegistry: 'docker-hub-conn'
+              repository: $(dockerRepository)
+              command: 'buildAndPush'
+              tags: |
+                $(VERSION)
+                latest
 
-  # 4. Сборка и пуш миграций (зависит от PreBuild)
+  # 4. Сборка и пуш миграций
   - stage: BuildMigration
     displayName: 'Build and Push Migration Image'
     dependsOn: StageID_PreBuild
-    variables:
-      appVersion: "$[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]"
     jobs:
       - job: BuildMigrationJob
         pool: { vmImage: 'ubuntu-latest' }
         steps:
+          - checkout: self
+          - bash: |
+              VERSION=$(grep '^version:' k8s/trading-bot/Chart.yaml | awk '{print $2}' | tr -d '"' | tr -d "'")
+              echo "##vso[task.setvariable variable=VERSION]$VERSION"
+            displayName: 'Extract Version'
           - task: Docker@2
-            displayName: 'Build and Push Migration'
             inputs:
               containerRegistry: 'docker-hub-conn'
               repository: $(migrationRepository)
               command: 'buildAndPush'
               Dockerfile: 'migration-service/Dockerfile'
-              buildContext: 'migration-service'
               tags: |
-                $(appVersion)
+                $(VERSION)
                 latest
 
   # 5. Пуш Helm чарта (OCI в Docker Hub)
