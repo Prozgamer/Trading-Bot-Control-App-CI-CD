@@ -89,29 +89,36 @@ stages:
               git config --global user.email "devops@azure.com"
               git config --global user.name "Azure DevOps Pipeline"
 
-              # --- ШАГ 1: Пуш в Main Bot ---
+              # --- ШАГ 1: Обновляем версию в Chart.yaml (Main Bot) ---
               cd "$MAIN_DIR"
+              # Проверяем путь к чарту
               if [ -f "k8s/trading-bot/Chart.yaml" ]; then
+                echo "Updating Chart.yaml to $(appVersion)"
                 sed -i "s/^version: .*/version: $(appVersion)/" k8s/trading-bot/Chart.yaml
                 git add k8s/trading-bot/Chart.yaml
                 if ! git diff --staged --quiet; then
                   git commit -m "Bump Chart version to $(appVersion) [skip ci]"
-                  # ИСПОЛЬЗУЕМ ТОКЕН ДЛЯ АВТОРИЗАЦИИ:
                   git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin HEAD:main
                 fi
               fi
 
-              # --- ШАГ 2: Пуш в State Repo ---
+              # --- ШАГ 2: Обновляем ревизию в State Repo ---
               cd "$STATE_DIR"
               git fetch origin main
               git checkout main
               
-              sed -i "s/targetRevision: .*/targetRevision: $(appVersion)/" application.yaml
-              
-              git add application.yaml
-              if ! git diff --staged --quiet; then
-                git commit -m "Update ArgoCD to $(appVersion) [skip ci]"
-                # И ТУТ ТОЖЕ ИСПОЛЬЗУЕМ ТОКЕН:
-                git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin main
+              # Имя файла должно совпадать с тем, что в репозитории
+              if [ -f "trading-bot-app.yaml" ]; then
+                echo "Updating State Repo to targetRevision: $(appVersion)"
+                sed -i "s/targetRevision: .*/targetRevision: $(appVersion)/" trading-bot-app.yaml
+                
+                git add trading-bot-app.yaml
+                if ! git diff --staged --quiet; then
+                  git commit -m "Update ArgoCD to $(appVersion) [skip ci]"
+                  git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin main
+                fi
+              else
+                echo "Error: trading-bot-app.yaml not found!"
+                exit 1
               fi
-            displayName: 'Final Sync with Auth'
+            displayName: 'Final Sync: Update Chart and State Repo'
