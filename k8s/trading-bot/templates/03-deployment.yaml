@@ -13,11 +13,12 @@ spec:
       labels:
         app: users-api
     spec:
-      containers:
-        - name: users-api
-          image: "{{ .Values.api.image.repository }}:{{ .Chart.Version }}"
-          ports:
-            - containerPort: 8080
+  containers:
+    - name: users-api
+      image: "{{ .Values.api.image.repository }}:{{ .Chart.Version }}"
+      imagePullPolicy: {{ .Values.api.image.pullPolicy | default "Always" }} # ДОБАВИТЬ СЮДА
+      ports:
+        - containerPort: 8080
           env:
             - name: SPRING_DATASOURCE_URL
               valueFrom:
