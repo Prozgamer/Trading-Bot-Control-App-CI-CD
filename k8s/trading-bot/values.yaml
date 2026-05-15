@@ -2,6 +2,7 @@
 api:
   image:
     repository: prozgamer/trading-bot
+    pullPolicy: Always
   service:
     type: LoadBalancer
     port: 80
