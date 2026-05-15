@@ -3,9 +3,9 @@ kind: Ingress
 metadata:
   name: trading-bot-ingress
   namespace: {{ .Release.Namespace }}
-  annotations:
-    kubernetes.io/ingress.class: traefik
+  # Аннотацию можно оставить для совместимости, но главное — поле ниже
 spec:
+  ingressClassName: traefik  # Добавь эту строку
   rules:
     - host: {{ .Values.ingress.host }}
       http:
