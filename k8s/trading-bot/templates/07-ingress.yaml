@@ -3,9 +3,11 @@ kind: Ingress
 metadata:
   name: trading-bot-ingress
   namespace: {{ .Release.Namespace }}
-  # Аннотацию можно оставить для совместимости, но главное — поле ниже
+  annotations:
+    # Эту аннотацию можно оставить, но теперь она вторична
+    kubernetes.io/ingress.class: traefik
 spec:
-  ingressClassName: traefik  # Добавь эту строку
+  ingressClassName: traefik  # <--- ВОТ СЮДА, прямо под spec
   rules:
     - host: {{ .Values.ingress.host }}
       http:
