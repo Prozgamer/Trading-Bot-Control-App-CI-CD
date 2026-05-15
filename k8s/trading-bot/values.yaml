@@ -2,6 +2,7 @@
 api:
   image:
     repository: prozgamer/trading-bot
+    tag: "16.00.34"
     pullPolicy: Always
   service:
     type: LoadBalancer
