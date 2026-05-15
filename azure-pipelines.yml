@@ -93,34 +93,44 @@ stages:
           - bash: |
               set -e
               
-              # Если переменная всё же пустая (баг проброса), берем из файла (План Б)
-              VERSION="$(appVersion)"
-              if [ -z "$VERSION" ]; then
-                echo "Stage variable empty, reading from Chart.yaml as fallback..."
-                VERSION=$(grep '^version:' s/main/k8s/trading-bot/Chart.yaml | awk '{print $2}' | tr -d '"' | tr -d "'")
-              fi
+              MAIN_DIR="$(Pipeline.Workspace)/s/main"
+              STATE_DIR="$(Pipeline.Workspace)/s/state"
 
+              # 1. Читаем версию ПРЯМО ИЗ ФАЙЛА в Main Bot (твои 16.00...)
+              # Достаем значение после 'version:'
+              VERSION=$(grep '^version:' "$MAIN_DIR/k8s/trading-bot/Chart.yaml" | awk '{print $2}' | tr -d '"' | tr -d "'")
+              
               if [ -z "$VERSION" ]; then
-                echo "ERROR: Could not determine version!"
+                echo "##vso[task.logissue type=error]Не удалось найти версию в Chart.yaml!"
                 exit 1
               fi
-
-              echo "Using version: $VERSION"
+              
+              echo "===> Используем версию из чарта: $VERSION"
 
               git config --global user.email "devops@azure.com"
               git config --global user.name "Azure DevOps Pipeline"
 
-              # Обновляем Chart.yaml в основном репо
-              cd "$(Pipeline.Workspace)/s/main"
-              sed -i "s/^version:.*/version: $VERSION/" k8s/trading-bot/Chart.yaml
-              git add k8s/trading-bot/Chart.yaml
-              git commit -m "Bump Chart to $VERSION [skip ci]" || echo "No changes"
-              git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin HEAD:main
+              # 2. Обновляем State Repo
+              cd "$STATE_DIR"
+              
+              # Гарантируем, что мы на нужной ветке и она актуальна
+              git fetch origin
+              # Пробуем переключиться на main, если не выйдет - на master
+              git checkout main || git checkout master
+              git pull origin $(git rev-parse --abbrev-ref HEAD)
 
-              # Обновляем State репо
-              cd "$(Pipeline.Workspace)/s/state"
+              echo "===> Обновляем trading-bot-app.yaml на версию $VERSION"
               sed -i "s/targetRevision: .*/targetRevision: $VERSION/" trading-bot-app.yaml
+              
               git add trading-bot-app.yaml
-              git commit -m "Update ArgoCD to $VERSION [skip ci]" || echo "No changes"
-              git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin main
-            displayName: 'Sync with Fallback'
+              
+              if ! git diff --staged --quiet; then
+                git commit -m "Update ArgoCD to $VERSION [skip ci]"
+                # Пушим в текущую активную ветку (main или master)
+                git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin HEAD
+              else
+                echo "Изменений в стейт-репозитории нет."
+              fi
+            displayName: 'Sync State with Chart Version'
+            env:
+              SYSTEM_ACCESSTOKEN: $(System.AccessToken)
