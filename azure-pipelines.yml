@@ -73,10 +73,12 @@ stages:
   # 6. Финальная синхронизация: Обновляем Main Bot и State Repo
   - stage: UpdateArgoCD
     displayName: 'Update ArgoCD State'
-    # КРИТИЧНО: Ждем именно Helm, чтобы все артефакты уже были в Docker Hub
-    dependsOn: BuildPushHelm 
+    dependsOn: 
+      - StageID_PreBuild
+      - BuildPushHelm 
     variables:
-      appVersion: "$[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]"
+      # ВАЖНО: Правильный путь к переменной из другой стадии
+      appVersion: $[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]
     jobs:
       - job: UpdateManifest
         pool: { vmImage: 'ubuntu-latest' }
@@ -91,53 +93,34 @@ stages:
           - bash: |
               set -e
               
-              MAIN_DIR="$(Pipeline.Workspace)/s/main"
-              STATE_DIR="$(Pipeline.Workspace)/s/state"
+              # Если переменная всё же пустая (баг проброса), берем из файла (План Б)
+              VERSION="$(appVersion)"
+              if [ -z "$VERSION" ]; then
+                echo "Stage variable empty, reading from Chart.yaml as fallback..."
+                VERSION=$(grep '^version:' s/main/k8s/trading-bot/Chart.yaml | awk '{print $2}' | tr -d '"' | tr -d "'")
+              fi
+
+              if [ -z "$VERSION" ]; then
+                echo "ERROR: Could not determine version!"
+                exit 1
+              fi
+
+              echo "Using version: $VERSION"
 
               git config --global user.email "devops@azure.com"
               git config --global user.name "Azure DevOps Pipeline"
 
-              # --- ШАГ 1: Обновляем Chart.yaml в основном репозитории ---
-              cd "$MAIN_DIR"
-              CURRENT_VER="$(appVersion)"
+              # Обновляем Chart.yaml в основном репо
+              cd "$(Pipeline.Workspace)/s/main"
+              sed -i "s/^version:.*/version: $VERSION/" k8s/trading-bot/Chart.yaml
+              git add k8s/trading-bot/Chart.yaml
+              git commit -m "Bump Chart to $VERSION [skip ci]" || echo "No changes"
+              git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin HEAD:main
 
-              if [ -z "$CURRENT_VER" ]; then
-                echo "ERROR: appVersion is empty! Skipping update."
-                exit 1
-              fi
-
-              if [ -f "k8s/trading-bot/Chart.yaml" ]; then
-                echo "Updating Chart.yaml to version: $CURRENT_VER"
-                # Используем более точный поиск для замены
-                sed -i "s/^version:.*/version: $CURRENT_VER/" k8s/trading-bot/Chart.yaml
-                
-                git add k8s/trading-bot/Chart.yaml
-                git commit -m "Bump Chart version to $CURRENT_VER [skip ci]"
-                git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin HEAD:main
-              fi
-
-              # --- ШАГ 2: Обновляем trading-bot-app.yaml в State Repo ---
-              echo "===> Updating State Repo Manifest"
-              cd "$STATE_DIR"
-              git fetch origin main
-              git checkout main
-              
-              # Проверяем наличие файла (согласно твоему скриншоту)
-              if [ -f "trading-bot-app.yaml" ]; then
-                sed -i "s/targetRevision: .*/targetRevision: $(appVersion)/" trading-bot-app.yaml
-                
-                git add trading-bot-app.yaml
-                if ! git diff --staged --quiet; then
-                  git commit -m "Update ArgoCD targetRevision to $(appVersion) [skip ci]"
-                  git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin main
-                else
-                  echo "No changes in State Repo"
-                fi
-              else
-                echo "ERROR: trading-bot-app.yaml not found!"
-                ls -la
-                exit 1
-              fi
-            displayName: 'Sync Chart and State Repos'
-            env:
-              SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+              # Обновляем State репо
+              cd "$(Pipeline.Workspace)/s/state"
+              sed -i "s/targetRevision: .*/targetRevision: $VERSION/" trading-bot-app.yaml
+              git add trading-bot-app.yaml
+              git commit -m "Update ArgoCD to $VERSION [skip ci]" || echo "No changes"
+              git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin main
+            displayName: 'Sync with Fallback'
