@@ -86,7 +86,7 @@ stages:
       dockerUser: $(DOCKER_USER)
       dockerPass: $(DOCKER_PASS)
       chartPath: 'k8s/trading-bot'
-      ociRegistry: 'registry-1.docker.io/prozgamer/trading-bot-helm'
+      ociRegistry: 'registry-1.docker.io/prozgamer'
       dependsOnStage: 'BuildMigration' # Ждем завершения миграций
 
   # 6. Финальная синхронизация: Обновляем Main Bot и State Repo
