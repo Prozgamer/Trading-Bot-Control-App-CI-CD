@@ -4,9 +4,11 @@ metadata:
   name: users-api-service
   namespace: trading-bot-ns
 spec:
-  type: LoadBalancer
+  type: ClusterIP  # <--- Поменяли с LoadBalancer на ClusterIP
   ports:
-    - port: 80
-      targetPort: 8080
+    - port: 80         # Внешний порт сервиса (куда стучится Ingress)
+      targetPort: 8080 # Порт внутри контейнера (из твоего application.yml)
+      protocol: TCP
+      name: http
   selector:
-    app: users-api
+    app: users-api     # Должно совпадать с меткой в Deployment
