@@ -98,17 +98,22 @@ stages:
               git config --global user.name "Azure DevOps Pipeline"
 
               # --- ШАГ 1: Обновляем Chart.yaml в основном репозитории ---
-              echo "===> Updating Main Bot Chart.yaml"
               cd "$MAIN_DIR"
+              CURRENT_VER="$(appVersion)"
+
+              if [ -z "$CURRENT_VER" ]; then
+                echo "ERROR: appVersion is empty! Skipping update."
+                exit 1
+              fi
+
               if [ -f "k8s/trading-bot/Chart.yaml" ]; then
-                sed -i "s/^version: .*/version: $(appVersion)/" k8s/trading-bot/Chart.yaml
+                echo "Updating Chart.yaml to version: $CURRENT_VER"
+                # Используем более точный поиск для замены
+                sed -i "s/^version:.*/version: $CURRENT_VER/" k8s/trading-bot/Chart.yaml
+                
                 git add k8s/trading-bot/Chart.yaml
-                if ! git diff --staged --quiet; then
-                  git commit -m "Bump Chart version to $(appVersion) [skip ci]"
-                  git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin HEAD:main
-                else
-                  echo "No changes in Chart.yaml"
-                fi
+                git commit -m "Bump Chart version to $CURRENT_VER [skip ci]"
+                git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin HEAD:main
               fi
 
               # --- ШАГ 2: Обновляем trading-bot-app.yaml в State Repo ---
