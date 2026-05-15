@@ -20,21 +20,25 @@ variables:
     value: 'prozgamer/migration-job'
 
 stages:
+  # 1. Рассчитываем версию
   - template: templates/pre-build/v1.yml@MyTemplatesRepo
     parameters:
       dockerUser: $(DOCKER_USER)
       dockerPass: $(DOCKER_PASS)
       dockerRepo: $(dockerRepository)
 
+  # 2. Тесты и сборка приложения
   - template: templates/build-test/v1.yml@MyTemplatesRepo
     parameters:
       appVersion: "$[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]"
 
+  # 3. Пуш основного Docker образа
   - template: templates/docker-steps/v1.yml@MyTemplatesRepo
     parameters:
       appVersion: "$[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]"
       dockerRepo: $(dockerRepository)
 
+  # 4. Сборка и пуш миграций (зависит от PreBuild)
   - stage: BuildMigration
     displayName: 'Build and Push Migration Image'
     dependsOn: StageID_PreBuild
@@ -56,17 +60,21 @@ stages:
                 $(appVersion)
                 latest
 
-  # Этот шаг теперь не упадет, так как мы обновим версию в Chart.yaml заранее
+  # 5. Пуш Helm чарта (OCI в Docker Hub)
+  # ВАЖНО: Должен стоять после сборки всех Docker образов
   - template: templates/helm-steps/v1.yml@MyTemplatesRepo
     parameters:
       dockerUser: $(DOCKER_USER)
       dockerPass: $(DOCKER_PASS)
       chartPath: 'k8s/trading-bot'
       ociRegistry: 'registry-1.docker.io/prozgamer'
+      dependsOnStage: 'BuildMigration' # Ждем завершения миграций
 
+  # 6. Финальная синхронизация: Обновляем Main Bot и State Repo
   - stage: UpdateArgoCD
     displayName: 'Update ArgoCD State'
-    dependsOn: StageID_PreBuild
+    # КРИТИЧНО: Ждем именно Helm, чтобы все артефакты уже были в Docker Hub
+    dependsOn: BuildPushHelm 
     variables:
       appVersion: "$[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]"
     jobs:
@@ -74,10 +82,10 @@ stages:
         pool: { vmImage: 'ubuntu-latest' }
         steps:
           - checkout: self
-            path: s/main    # Теперь код бота ВСЕГДА в папке 'main'
+            path: s/main
             persistCredentials: true
           - checkout: stateRepo
-            path: s/state   # Теперь стейт ВСЕГДА в папке 'state'
+            path: s/state
             persistCredentials: true
 
           - bash: |
@@ -89,36 +97,42 @@ stages:
               git config --global user.email "devops@azure.com"
               git config --global user.name "Azure DevOps Pipeline"
 
-              # --- ШАГ 1: Обновляем версию в Chart.yaml (Main Bot) ---
+              # --- ШАГ 1: Обновляем Chart.yaml в основном репозитории ---
+              echo "===> Updating Main Bot Chart.yaml"
               cd "$MAIN_DIR"
-              # Проверяем путь к чарту
               if [ -f "k8s/trading-bot/Chart.yaml" ]; then
-                echo "Updating Chart.yaml to $(appVersion)"
                 sed -i "s/^version: .*/version: $(appVersion)/" k8s/trading-bot/Chart.yaml
                 git add k8s/trading-bot/Chart.yaml
                 if ! git diff --staged --quiet; then
                   git commit -m "Bump Chart version to $(appVersion) [skip ci]"
                   git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin HEAD:main
+                else
+                  echo "No changes in Chart.yaml"
                 fi
               fi
 
-              # --- ШАГ 2: Обновляем ревизию в State Repo ---
+              # --- ШАГ 2: Обновляем trading-bot-app.yaml в State Repo ---
+              echo "===> Updating State Repo Manifest"
               cd "$STATE_DIR"
               git fetch origin main
               git checkout main
               
-              # Имя файла должно совпадать с тем, что в репозитории
+              # Проверяем наличие файла (согласно твоему скриншоту)
               if [ -f "trading-bot-app.yaml" ]; then
-                echo "Updating State Repo to targetRevision: $(appVersion)"
                 sed -i "s/targetRevision: .*/targetRevision: $(appVersion)/" trading-bot-app.yaml
                 
                 git add trading-bot-app.yaml
                 if ! git diff --staged --quiet; then
-                  git commit -m "Update ArgoCD to $(appVersion) [skip ci]"
+                  git commit -m "Update ArgoCD targetRevision to $(appVersion) [skip ci]"
                   git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin main
+                else
+                  echo "No changes in State Repo"
                 fi
               else
-                echo "Error: trading-bot-app.yaml not found!"
+                echo "ERROR: trading-bot-app.yaml not found!"
+                ls -la
                 exit 1
               fi
-            displayName: 'Final Sync: Update Chart and State Repo'
+            displayName: 'Sync Chart and State Repos'
+            env:
+              SYSTEM_ACCESSTOKEN: $(System.AccessToken)
