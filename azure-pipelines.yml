@@ -100,15 +100,15 @@ stages:
               echo "Detected Chart Name: $CHART_NAME"
               echo "Detected Chart Version: $CHART_VERSION"
 
-              # 2. Логинимся в Docker Hub для Хельма
+              # 2. Логинимся в Docker Hub
               echo "$DOCKER_PASS" | helm registry login registry-1.docker.io --username "$DOCKER_USER" --password-stdin
 
               # 3. Упаковываем чарт
               helm package k8s/trading-bot --version "$CHART_VERSION"
 
-              # 4. Пушим строго в репозиторий trading-bot-helm БЕЗ вложенных папок
+              # 4. Пушим в корень аккаунта (Helm сам приклеит $CHART_NAME, то есть 'trading-bot-helm')
               echo "Pushing chart to OCI registry..."
-              helm push ${CHART_NAME}-${CHART_VERSION}.tgz oci://registry-1.docker.io/prozgamer/trading-bot-helm
+              helm push ${CHART_NAME}-${CHART_VERSION}.tgz oci://registry-1.docker.io/prozgamer
             displayName: 'Handmade Helm Package and Push'
             env:
               DOCKER_USER: $(DOCKER_USER)
