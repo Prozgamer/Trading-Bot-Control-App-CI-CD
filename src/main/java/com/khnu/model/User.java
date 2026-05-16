@@ -1,5 +1,6 @@
 package com.khnu.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*; // Импортируем всё для работы с БД
 import jakarta.validation.constraints.Email;
@@ -11,6 +12,7 @@ import java.util.UUID;
 
 @Entity // Говорим Spring, что это таблица
 @Table(name = "users") // Имя таблицы в Postgres
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class User {
 
     @Id // Это первичный ключ
@@ -88,7 +90,6 @@ public class User {
                 "id=" + id +
                 ", login='" + login + '\'' +
                 ", email='" + email + '\'' +
-                ", tradingAccounts=" + tradingAccounts +
                 '}';
     }
 }

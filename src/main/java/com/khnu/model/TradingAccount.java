@@ -1,6 +1,7 @@
 package com.khnu.model;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalTime;
@@ -8,6 +9,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "trading_accounts")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class TradingAccount {
 
     @Id
