@@ -83,4 +83,41 @@ public class UserService implements IUserService {
         return accountsRepository.findById(accountId);
     }
 
+    @Override
+    @Transactional
+    public TradingAccount updateAccountConfig(UUID accountId, TradingAccount newConfig) {
+        TradingAccount account = accountsRepository.findById(accountId)
+                .orElseThrow(() -> new RuntimeException("Account not found: " + accountId));
+
+        // Обновляем только изменяемые параметры настроек
+        account.setHtimeframe(newConfig.getHtimeframe());
+        account.setLtimeframe(newConfig.getLtimeframe());
+        account.setLookbackCandles(newConfig.getLookbackCandles());
+        account.setMaxDdPrc(newConfig.getMaxDdPrc());
+        account.setMinFvgSize(newConfig.getMinFvgSize());
+        account.setCandlesToLive(newConfig.getCandlesToLive());
+        account.setStructureLookback(newConfig.getStructureLookback());
+        account.setConfirmationWaitBars(newConfig.getConfirmationWaitBars());
+        account.setMinStopDistancePoints(newConfig.getMinStopDistancePoints());
+        account.setMaxStopDistancePoints(newConfig.getMaxStopDistancePoints());
+        account.setMornStartTime(newConfig.getMornStartTime());
+        account.setMornEndTime(newConfig.getMornEndTime());
+        account.setEveStartTime(newConfig.getEveStartTime());
+        account.setEveEndTime(newConfig.getEveEndTime());
+
+        return accountsRepository.save(account);
+    }
+
+    @Override
+    @Transactional
+    public boolean toggleBotStatus(UUID accountId, boolean run) {
+        Optional<TradingAccount> accountOpt = accountsRepository.findById(accountId);
+        if (accountOpt.isPresent()) {
+            TradingAccount account = accountOpt.get();
+            account.setRunning(run);
+            accountsRepository.save(account);
+            return true;
+        }
+        return false;
+    }
 }

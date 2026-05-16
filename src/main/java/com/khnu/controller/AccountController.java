@@ -20,7 +20,6 @@ public class AccountController {
         this.userService = userService;
     }
 
-    // 1. Додати торговий рахунок (createbot)
     @PostMapping("/{userid}/createbot")
     public ResponseEntity<String> createBot(@PathVariable UUID userid, @RequestBody TradingAccount account) {
         try {
@@ -31,16 +30,28 @@ public class AccountController {
         }
     }
 
-    // 2. Змінити налаштування
-    @PatchMapping("/{id}/config")
-    public ResponseEntity<String> updateConfig(@PathVariable UUID id, @RequestBody TradingAccount config) {
-        // Тут логіка оновлення timeframe або riskLevel
-        return ResponseEntity.ok("Configuration updated");
+    // 2. ПОЛУЧИТЬ НАСТРОЙКИ
+    @GetMapping("/{id}/config")
+    public ResponseEntity<TradingAccount> getConfig(@PathVariable UUID id) {
+        return userService.getAccountById(UUID.randomUUID(), id) // первый аргумент заглушка, если метод ищет тупо по id аккаунта
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
-    // 3. Зупинити торгівлю
-    @PostMapping("/{id}/stop")
-    public ResponseEntity<String> stopBot(@PathVariable UUID id) {
-        return ResponseEntity.ok("Bot stopped");
+    // 3. ИЗМЕНИТЬ НАСТРОЙКИ (Для фронтенда / Postman)
+    @PatchMapping("/{id}/config")
+    public ResponseEntity<TradingAccount> updateConfig(@PathVariable UUID id, @RequestBody TradingAccount config) {
+        TradingAccount updated = userService.updateAccountConfig(id, config);
+        return ResponseEntity.ok(updated);
+    }
+
+    // 4. ЗУПИНИТИ/ЗАПУСТИТИ ТОРГІВЛЮ (Переключатель для "Panic Button")
+    @PostMapping("/{id}/toggle")
+    public ResponseEntity<String> toggleBot(@PathVariable UUID id, @RequestParam boolean run) {
+        if (userService.toggleBotStatus(id, run)) {
+            String status = run ? "started" : "stopped";
+            return ResponseEntity.ok("Bot " + status + " successfully");
+        }
+        return ResponseEntity.notFound().build();
     }
 }

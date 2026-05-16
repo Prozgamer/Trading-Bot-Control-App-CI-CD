@@ -17,12 +17,30 @@ VALUES ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'Admin', 'admin@example.com', 'a
 CREATE TABLE trading_accounts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL,
-    mt_login VARCHAR(255) NOT NULL,    -- Исправлено для соответствия Java mtLogin
-    mt_password VARCHAR(255) NOT NULL, -- Исправлено для соответствия Java mtPassword
+    mt_login VARCHAR(255) NOT NULL,
+    mt_password VARCHAR(255) NOT NULL,
     server VARCHAR(255) NOT NULL,
-    htimeframe VARCHAR(50),
-    ltimeframe VARCHAR(50),
+    htimeframe VARCHAR(50) DEFAULT 'PERIOD_H4',
+    ltimeframe VARCHAR(50) DEFAULT 'PERIOD_M15',
     is_running BOOLEAN DEFAULT FALSE,
+
+    -- Новые поля настроек из твоего MQ5 файла
+    lookback_candles INT DEFAULT 20,
+    max_dd_prc NUMERIC(4, 2) DEFAULT 2.50,
+    min_fvg_size INT DEFAULT 50,
+    candles_to_live INT DEFAULT 9,
+
+    structure_lookback INT DEFAULT 12,
+    confirmation_wait_bars INT DEFAULT 12,
+    min_stop_distance_points INT DEFAULT 100,
+    max_stop_distance_points INT DEFAULT 299,
+
+    -- Время сессий
+    morn_start_time TIME DEFAULT '10:00:00',
+    morn_end_time TIME DEFAULT '14:00:00',
+    eve_start_time TIME DEFAULT '15:40:00',
+    eve_end_time TIME DEFAULT '18:00:00',
+
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_user FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 );

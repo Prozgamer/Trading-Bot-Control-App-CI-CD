@@ -22,4 +22,8 @@ public interface IUserService {
     boolean updateUserProfile(UUID userId, String email, String password);
 
     Optional<TradingAccount> getAccountById(UUID userId, UUID accountId);
+
+    TradingAccount updateAccountConfig(UUID accountId, TradingAccount newConfig);
+
+    boolean toggleBotStatus(UUID accountId, boolean run);
 }

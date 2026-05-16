@@ -4,7 +4,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 @Component
-@ConfigurationProperties(prefix = "settings") // зверніть увагу
+@ConfigurationProperties(prefix = "settings")
 public class AppConfigurations {
     private String applicationVersion;
     private TestMode testMode = new TestMode();

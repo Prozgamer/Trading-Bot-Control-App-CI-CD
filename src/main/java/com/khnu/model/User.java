@@ -1,5 +1,6 @@
 package com.khnu.model;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*; // Импортируем всё для работы с БД
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -17,7 +18,7 @@ public class User {
 
     @NotBlank(message = "Username is required")
     @Size(min = 3, max = 20, message = "Username must be between 3 and 20 characters")
-    @Column(name = "name") // В твоем SQL колонка называется 'name', а в Java 'login'
+    @Column(name = "name")
     private String login;
 
     private String password;
@@ -31,6 +32,7 @@ public class User {
     // mappedBy = "user" — это имя поля в классе TradingAccount
     // CascadeType.ALL — если удалим юзера, удалятся и его аккаунты
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference
     private List<TradingAccount> tradingAccounts = new ArrayList<>();
 
     public User() {
