@@ -27,12 +27,12 @@ stages:
       dockerPass: $(DOCKER_PASS)
       dockerRepo: $(dockerRepository)
 
-  # 2. Тесты и сборка приложения
+  # 2. Тесты и сборка проекта
   - template: templates/build-test/v1.yml@MyTemplatesRepo
     parameters:
       appVersion: "$[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]"
 
-  # 3. Пуш основного Docker образа
+  # 3. Пуш основного Docker-образа приложения
   - stage: BuildPushDocker
     displayName: 'Docker: Build and Push'
     dependsOn: StageID_PreBuild 
@@ -42,7 +42,6 @@ stages:
         steps:
           - checkout: self
           - bash: |
-              # Читаем твою версию (16.0...) из файла
               VERSION=$(grep '^version:' k8s/trading-bot/Chart.yaml | awk '{print $2}' | tr -d '"' | tr -d "'")
               echo "##vso[task.setvariable variable=VERSION]$VERSION"
             displayName: 'Extract Version'
@@ -56,7 +55,7 @@ stages:
                 $(VERSION)
                 latest
 
-  # 4. Сборка и пуш миграций
+  # 4. Сборка и пуш миграций Flyway
   - stage: BuildMigration
     displayName: 'Build and Push Migration Image'
     dependsOn: StageID_PreBuild
@@ -70,6 +69,7 @@ stages:
               echo "##vso[task.setvariable variable=VERSION]$VERSION"
             displayName: 'Extract Version'
           - task: Docker@2
+            displayName: 'Build and Push Migration Job'
             inputs:
               containerRegistry: 'docker-hub-conn'
               repository: $(migrationRepository)
@@ -79,8 +79,7 @@ stages:
                 $(VERSION)
                 latest
 
-  # 5. Пуш Helm чарта (OCI в Docker Hub)
-  # ВАЖНО: Должен стоять после сборки всех Docker образов
+  # 5. Пуш Helm-чарта (OCI подход в выделенный репозиторий Docker Hub)
   - stage: BuildPushHelm
     displayName: 'Helm: Package and Push'
     dependsOn: BuildMigration
@@ -93,88 +92,35 @@ stages:
           - bash: |
               set -e
 
-              # 1. Считываем имя и версию из Chart.yaml
+              # 1. Считываем имя и версию из Chart.yaml (теперь там имя: trading-bot-helm)
               CHART_NAME=$(grep '^name:' k8s/trading-bot/Chart.yaml | awk '{print $2}' | tr -d '"' | tr -d "'")
               CHART_VERSION=$(grep '^version:' k8s/trading-bot/Chart.yaml | awk '{print $2}' | tr -d '"' | tr -d "'")
 
               echo "Detected Chart Name: $CHART_NAME"
               echo "Detected Chart Version: $CHART_VERSION"
 
-              # 2. Логинимся в Docker Hub
+              # 2. Авторизация в Docker Hub реестре
               echo "$DOCKER_PASS" | helm registry login registry-1.docker.io --username "$DOCKER_USER" --password-stdin
 
-              # 3. Упаковываем чарт
+              # 3. Компиляция чарта в .tgz архив
               helm package k8s/trading-bot --version "$CHART_VERSION"
 
-              # 4. Пушим в корень аккаунта (Helm сам приклеит $CHART_NAME, то есть 'trading-bot-helm')
+              # 4. Пушим в корень аккаунта. Helm нативно добавит $CHART_NAME (trading-bot-helm) в конец пути URL
               echo "Pushing chart to OCI registry..."
-              helm push ${CHART_NAME}-${CHART_VERSION}.tgz oci://registry-1.docker.io/prozgamer/trading-bot-helm
+              helm push ${CHART_NAME}-${CHART_VERSION}.tgz oci://registry-1.docker.io/prozgamer
             displayName: 'Handmade Helm Package and Push'
             env:
               DOCKER_USER: $(DOCKER_USER)
               DOCKER_PASS: $(DOCKER_PASS)
 
-  # 6. Финальная синхронизация: Обновляем Main Bot и State Repo
+  # 6. Финальное обновление манифеста ArgoCD в стейт-репозитории
   - stage: UpdateArgoCD
     displayName: 'Update ArgoCD State'
     dependsOn: 
       - StageID_PreBuild
       - BuildPushHelm 
     variables:
-      # ВАЖНО: Правильный путь к переменной из другой стадии
       appVersion: $[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]
     jobs:
       - job: UpdateManifest
         pool: { vmImage: 'ubuntu-latest' }
-        steps:
-          - checkout: self
-            path: s/main
-            persistCredentials: true
-          - checkout: stateRepo
-            path: s/state
-            persistCredentials: true
-
-          - bash: |
-              set -e
-              
-              MAIN_DIR="$(Pipeline.Workspace)/s/main"
-              STATE_DIR="$(Pipeline.Workspace)/s/state"
-
-              # 1. Читаем версию ПРЯМО ИЗ ФАЙЛА в Main Bot (твои 16.00...)
-              # Достаем значение после 'version:'
-              VERSION=$(grep '^version:' "$MAIN_DIR/k8s/trading-bot/Chart.yaml" | awk '{print $2}' | tr -d '"' | tr -d "'")
-              
-              if [ -z "$VERSION" ]; then
-                echo "##vso[task.logissue type=error]Не удалось найти версию в Chart.yaml!"
-                exit 1
-              fi
-              
-              echo "===> Используем версию из чарта: $VERSION"
-
-              git config --global user.email "devops@azure.com"
-              git config --global user.name "Azure DevOps Pipeline"
-
-              # 2. Обновляем State Repo
-              cd "$STATE_DIR"
-              
-              # Гарантируем, что мы на нужной ветке и она актуальна
-              git fetch origin
-              # Пробуем переключиться на main, если не выйдет - на master
-              git checkout main || git checkout master
-              git pull origin $(git rev-parse --abbrev-ref HEAD)
-
-              echo "===> Обновляем trading-bot-app.yaml на версию $VERSION"
-              sed -i "s/targetRevision: .*/targetRevision: $VERSION/" trading-bot-app.yaml
-              
-              git add trading-bot-app.yaml
-              
-              if ! git diff --staged --quiet; then
-                git commit -m "Update ArgoCD to $VERSION [skip ci]"
-                # Пушим в текущую активную ветку (main или master)
-                git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin HEAD
-              else
-                echo "Изменений в стейт-репозитории нет."
-              fi
-            displayName: 'Sync State with Chart Version'
-            env:
-              SYSTEM_ACCESSTOKEN: $(System.AccessToken)
