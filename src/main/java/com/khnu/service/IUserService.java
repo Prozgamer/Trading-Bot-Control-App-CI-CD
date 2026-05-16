@@ -3,6 +3,7 @@ package com.khnu.service;
 import com.khnu.model.User;
 import com.khnu.model.TradingAccount;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -26,4 +27,6 @@ public interface IUserService {
     TradingAccount updateAccountConfig(UUID accountId, TradingAccount newConfig);
 
     boolean toggleBotStatus(UUID accountId, boolean run);
+
+    List<User> findAll();
 }

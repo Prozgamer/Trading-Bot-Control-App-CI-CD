@@ -120,4 +120,8 @@ public class UserService implements IUserService {
         }
         return false;
     }
+    @Override
+    public List<User> findAll() {
+        return userRepository.findAll(); // Ну или как там у тебя называется репозиторий базы данных
+    }
 }
