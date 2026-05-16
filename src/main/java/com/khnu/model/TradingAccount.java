@@ -1,6 +1,7 @@
 package com.khnu.model;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
@@ -17,7 +18,7 @@ public class TradingAccount {
 
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
-    @JsonBackReference
+    @JsonIgnore
     private User user;
 
     @Column(name = "mt_login", nullable = false)
