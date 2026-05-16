@@ -108,7 +108,7 @@ stages:
 
               # 4. Пушим в корень аккаунта (Helm сам приклеит $CHART_NAME, то есть 'trading-bot-helm')
               echo "Pushing chart to OCI registry..."
-              helm push ${CHART_NAME}-${CHART_VERSION}.tgz oci://registry-1.docker.io/prozgamer
+              helm push ${CHART_NAME}-${CHART_VERSION}.tgz oci://registry-1.docker.io/prozgamer/trading-bot-helm
             displayName: 'Handmade Helm Package and Push'
             env:
               DOCKER_USER: $(DOCKER_USER)
