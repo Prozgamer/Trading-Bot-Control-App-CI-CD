@@ -136,18 +136,18 @@ stages:
           - bash: |
               set -e
 
-              # Выводим текущую версию для логирования в пайплайне
-              echo "Updating targetRevision to $(appVersion) in trading-bot-app.yaml..."
+              # Выводим текущую версию для логирования
+              echo "Updating targetRevision to $(appVersion) in application.yaml..."
 
-              # Магия sed: ищет строку targetRevision: и заменяет всё после неё на актуальную версию билда
-              sed -i "s/targetRevision: .*/targetRevision: \"$(appVersion)\"/g" trading-bot-app.yaml
+              # Теперь sed ищет и правит правильный файл — application.yaml
+              sed -i "s/targetRevision: .*/targetRevision: \"$(appVersion)\"/g" application.yaml
 
-              # Настройка временного пользователя Git для коммита на агенте
+              # Настройка временного пользователя Git
               git config --global user.email "devops-pipeline@azure.com"
               git config --global user.name "Azure DevOps Pipeline"
 
-              # Добавляем изменения, коммитим и пушим в ветку main репозитория состояний
-              git add trading-bot-app.yaml
+              # Добавляем именно application.yaml, коммитим и пушим
+              git add application.yaml
               git commit -m "chore: update trading-bot-helm version to $(appVersion) [skip ci]"
               git push origin HEAD:main
             displayName: 'Update ArgoCD Application Manifest and Push to Git'
