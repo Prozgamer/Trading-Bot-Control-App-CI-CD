@@ -92,12 +92,16 @@ stages:
           - bash: |
               set -e
 
-              # 1. Считываем имя и версию из Chart.yaml (теперь там имя: trading-bot-helm)
+              # 1. Считываем имя и версию из Chart.yaml
               CHART_NAME=$(grep '^name:' k8s/trading-bot/Chart.yaml | awk '{print $2}' | tr -d '"' | tr -d "'")
               CHART_VERSION=$(grep '^version:' k8s/trading-bot/Chart.yaml | awk '{print $2}' | tr -d '"' | tr -d "'")
 
               echo "Detected Chart Name: $CHART_NAME"
               echo "Detected Chart Version: $CHART_VERSION"
+
+              # КЛЮЧЕВОЙ ШАГ: Динамически подставляем актуальную версию в values.yaml перед упаковкой
+              echo "Updating image tag in values.yaml to $CHART_VERSION..."
+              sed -i "s/tag: .*/tag: \"$CHART_VERSION\"/g" k8s/trading-bot/values.yaml
 
               # 2. Авторизация в Docker Hub реестре
               echo "$DOCKER_PASS" | helm registry login registry-1.docker.io --username "$DOCKER_USER" --password-stdin
@@ -105,10 +109,10 @@ stages:
               # 3. Компиляция чарта в .tgz архив
               helm package k8s/trading-bot --version "$CHART_VERSION"
 
-              # 4. Пушим в корень аккаунта. Helm нативно добавит $CHART_NAME (trading-bot-helm) в конец пути URL
+              # 4. Пушим в корень аккаунта
               echo "Pushing chart to OCI registry..."
               helm push ${CHART_NAME}-${CHART_VERSION}.tgz oci://registry-1.docker.io/prozgamer
-            displayName: 'Handmade Helm Package and Push'
+            displayName: 'Update Values, Package and Push Helm'
             env:
               DOCKER_USER: $(DOCKER_USER)
               DOCKER_PASS: $(DOCKER_PASS)
