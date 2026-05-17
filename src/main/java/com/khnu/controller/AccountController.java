@@ -54,4 +54,10 @@ public class AccountController {
         }
         return ResponseEntity.notFound().build();
     }
+    @GetMapping("/config")
+    public ResponseEntity<TradingAccount> getConfigViaParam(@RequestParam UUID uuid) {
+        return userService.getAccountById(UUID.randomUUID(), uuid)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
 }

@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: docker-hub-oci-repo
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: repository
+type: Opaque
+stringData:
+  name: prozgamer-docker-hub
+  type: helm
+  url: registry-1.docker.io/prozgamer
+  enableOCI: "true" # <-- ВОТ ЭТА МАГИЯ заставит ArgoCD включить режим OCI
