@@ -2,6 +2,7 @@ package com.khnu.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*; // Импортируем всё для работы с БД
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -21,6 +22,7 @@ public class User {
     @NotBlank(message = "Username is required")
     @Size(min = 3, max = 20, message = "Username must be between 3 and 20 characters")
     @Column(name = "name")
+    @JsonProperty("login") // Явно указываем Jackson имя поля в JSON
     private String login;
 
     private String password;
@@ -37,8 +39,8 @@ public class User {
     @JsonManagedReference
     private List<TradingAccount> tradingAccounts = new ArrayList<>();
 
+    // Конструктор по умолчанию (обязателен для Jackson/Spring)
     public User() {
-        // Оставляем генерацию UUID, если не передаем его вручную
         if (this.id == null) {
             this.id = UUID.randomUUID();
         }
