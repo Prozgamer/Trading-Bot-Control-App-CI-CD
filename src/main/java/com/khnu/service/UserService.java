@@ -105,6 +105,7 @@ public class UserService implements IUserService {
         account.setMornEndTime(newConfig.getMornEndTime());
         account.setEveStartTime(newConfig.getEveStartTime());
         account.setEveEndTime(newConfig.getEveEndTime());
+        account.setRunning(newConfig.isRunning());
 
         return accountsRepository.save(account);
     }
