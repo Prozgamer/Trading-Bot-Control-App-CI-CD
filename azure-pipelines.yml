@@ -128,3 +128,26 @@ stages:
     jobs:
       - job: UpdateManifest
         pool: { vmImage: 'ubuntu-latest' }
+        steps:
+          # Клонируем репозиторий состояний trading-bot-state
+          - checkout: stateRepo
+            persistCredentials: true
+
+          - bash: |
+              set -e
+
+              # Выводим текущую версию для логирования в пайплайне
+              echo "Updating targetRevision to $(appVersion) in trading-bot-app.yaml..."
+
+              # Магия sed: ищет строку targetRevision: и заменяет всё после неё на актуальную версию билда
+              sed -i "s/targetRevision: .*/targetRevision: \"$(appVersion)\"/g" trading-bot-app.yaml
+
+              # Настройка временного пользователя Git для коммита на агенте
+              git config --global user.email "devops-pipeline@azure.com"
+              git config --global user.name "Azure DevOps Pipeline"
+
+              # Добавляем изменения, коммитим и пушим в ветку main репозитория состояний
+              git add trading-bot-app.yaml
+              git commit -m "chore: update trading-bot-helm version to $(appVersion) [skip ci]"
+              git push origin HEAD:main
+            displayName: 'Update ArgoCD Application Manifest and Push to Git'
