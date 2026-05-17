@@ -9,7 +9,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface IUserService {
-    User createUser(String login, String password);
+    User createUser(String login, String password, String email);
 
     Optional<User> getUserById(UUID id);
     List<User> getAllUsers();

@@ -19,8 +19,9 @@ public class UserService implements IUserService {
     AccountsRepository accountsRepository;
 
     @Override
-    public User createUser(String login, String password) {
+    public User createUser(String login, String password, String email) {
         User user = new User(login, password);
+        user.setEmail(email); // <--- ВОТ ЭТОГО НЕ ХВАТАЛО!
         userRepository.save(user);
         return user;
     }
