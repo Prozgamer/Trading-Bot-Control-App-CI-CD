@@ -24,7 +24,7 @@ public class UserController {
     }
 
     // 1. Реєстрація (Пока оставляем так, но на будущее лучше тоже перевести на DTO)
-    @PostMapping("/register")
+    @PostMapping("/auth/register")
     public ResponseEntity<User> register(@Valid @RequestBody User user) {
         User createdUser = userService.createUser(user.getLogin(), user.getPassword());
         return new ResponseEntity<>(createdUser, HttpStatus.CREATED);

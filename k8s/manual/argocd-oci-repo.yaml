@@ -1,13 +1,18 @@
 apiVersion: v1
 kind: Secret
 metadata:
-  name: docker-hub-oci-repo
+  name: prozgamer-docker-oci
   namespace: argocd
   labels:
     argocd.argoproj.io/secret-type: repository
-type: Opaque
 stringData:
-  name: prozgamer-docker-hub
+  name: prozgamer-oci
+  # Указываем тип репозитория — это КРИТИЧЕСКИ важно для OCI
   type: helm
+  # URL указывается БЕЗ названия самого чарта, только путь к registry
   url: registry-1.docker.io/prozgamer
-  enableOCI: "true" # <-- ВОТ ЭТА МАГИЯ заставит ArgoCD включить режим OCI
+  # Если репозиторий публичный, поля ниже можно удалить.
+  # Если приватный — раскомментируй и вставь токен/пароль:
+  # username: prozgamer
+  # password: <your-docker-token>
+  enableOCI: "true"

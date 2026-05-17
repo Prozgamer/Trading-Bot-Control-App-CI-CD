@@ -4,25 +4,22 @@ metadata:
   name: trading-bot
   namespace: argocd
 spec:
-  destination:
-    namespace: trading-bot-ns
-    server: https://kubernetes.default.svc
   project: default
   source:
     repoURL: registry-1.docker.io/prozgamer
     chart: trading-bot-helm
-    targetRevision: 16.00.53  # Версия Хелм-чарта
+    targetRevision: 16.00.54
     helm:
       valueFiles:
         - values.yaml
-      # --- ДОБАВЛЯЕМ ЭТОТ БЛОК ПАРАМЕТРОВ ---
+      # ПЕРЕЗАПИСЫВАЕМ ТЕГ ОБРАЗА:
       parameters:
-        - name: "api.image.tag"
-          value: "16.00.53"     # Твой самый свежий тег Docker-образа с кодом!
-      # --------------------------------------
+        - name: image.tag
+          value: "16.00.54"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: trading-bot-ns
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
-    syncOptions:
-      - CreateNamespace=true
