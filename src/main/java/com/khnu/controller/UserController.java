@@ -1,6 +1,7 @@
 package com.khnu.controller;
 
 import com.khnu.model.User;
+import com.khnu.model.UserRegisterDto;
 import com.khnu.model.UserResponse;
 import com.khnu.service.IUserService;
 import jakarta.validation.Valid;
@@ -24,10 +25,10 @@ public class UserController {
     }
 
     // 1. Реєстрація (Пока оставляем так, но на будущее лучше тоже перевести на DTO)
-    @PostMapping("/auth/register")
-    public ResponseEntity<User> register(@Valid @RequestBody User user) {
-        // Передаем все три параметра в сервис
-        User createdUser = userService.createUser(user.getLogin(), user.getPassword(), user.getEmail());
+    @PostMapping(value = "/auth/register", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<User> register(@Valid @RequestBody UserRegisterDto dto) {
+        // Вызываем сервис, передавая чистые строки из DTO
+        User createdUser = userService.createUser(dto.getLogin(), dto.getPassword(), dto.getEmail());
         return new ResponseEntity<>(createdUser, HttpStatus.CREATED);
     }
 
