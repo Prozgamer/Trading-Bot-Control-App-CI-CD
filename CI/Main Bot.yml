@@ -1,0 +1,188 @@
+trigger:
+  branches:
+    include:
+    - main
+resources:
+  repositories:
+  - repository: MyTemplatesRepo
+    type: git
+    name: TB/PipelineTemplates
+  - repository: stateRepo
+    type: git
+    name: trading-bot-state
+variables:
+- group: 'my-war-group'
+- name: dockerRepository
+  value: 'prozgamer/trading-bot'
+- name: migrationRepository
+  value: 'prozgamer/migration-job'
+stages:
+- stage: StageID_PreBuild
+  displayName: 'Pre-Build (API Versioning)'
+  jobs:
+  - job: JobID_PreBuild
+    steps:
+    - task: CmdLine@2
+      name: CalculateAppVersion
+      displayName: 'Get Latest Version from Docker Hub API'
+      inputs:
+        script: "echo \"Logging into Docker Hub...\"\nresponse=$(curl -s -H \"Content-Type: application/json\" -X POST -d \"{\\\"username\\\": \\\"$(DOCKER_USER)\\\", \\\"password\\\": \\\"$(DOCKER_PASS)\\\"}\" https://hub.docker.com/v2/users/login/)\ntoken=$(echo $response | jq -r .token)\n\nif [ \"$token\" == \"null\" ] || [ -z \"$token\" ]; then\n  echo \"##vso[task.logissue type=error]Failed to login to Docker Hub. Check DOCKER_USER and DOCKER_PASS in Library.\"\n  exit 1\nfi\n\nREPO_NAME=$(echo \"$(dockerRepository)\" | rev | cut -d'/' -f1 | rev)\necho \"Target repository: $REPO_NAME\"\n\ntags_response=$(curl -s -H \"Authorization: Bearer $token\" \"https://hub.docker.com/v2/repositories/$(DOCKER_USER)/$REPO_NAME/tags\")\n\nlatest_version=$(echo \"$tags_response\" | jq -r '.results | map(select(.content_type == \"image\" and (.name | test(\"^[0-9]+\\\\.[0-9]+\\\\.[0-9]+$\")))) | max_by(.last_updated) | .name')\n\nif [ \"$latest_version\" == \"null\" ] || [ -z \"$latest_version\" ]; then\n    new_version=\"1.0.0\"\n    echo \"No digital version found in Docker Hub. Starting from $new_version\"\nelse\n    echo \"Latest numeric version found: $latest_version\"\n    \n    IFS='.' read -ra ADDR <<< \"$latest_version\"\n    major=${ADDR[0]}\n    minor=${ADDR[1]}\n    patch=${ADDR[2]}\n\n    new_version=\"$major.$minor.$((patch + 1))\"\nfi\n\necho \"Final calculated version: $new_version\"\n\necho \"##vso[task.setvariable variable=APP_VERSION;isOutput=true]$new_version\"\n"
+- stage: StageID_BuildAndTestProject
+  displayName: 'Project: Build and Test (Template)'
+  dependsOn:
+  - StageID_PreBuild
+  variables:
+  - name: v_Version
+    value: $[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]
+  jobs:
+  - job: BuildJob
+    steps:
+    - task: JavaToolInstaller@0
+      inputs:
+        versionSpec: '21'
+        jdkArchitectureOption: 'x64'
+        jdkSourceOption: 'PreInstalled'
+    - task: CmdLine@2
+      inputs:
+        script: echo "Building version $(v_Version)"
+    - task: Maven@3
+      inputs:
+        mavenPomFile: 'pom.xml'
+        goals: 'clean package -DskipTests'
+        javaHomeOption: 'JDKVersion'
+        jdkVersionOption: '1.21'
+- stage: BuildPushDocker
+  displayName: 'Docker: Build and Push'
+  dependsOn:
+  - StageID_PreBuild
+  jobs:
+  - job: DockerJob
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - task: 6d15af64-176c-496d-b583-fd2ae21d4df4@1
+      inputs:
+        repository: self
+    - task: Bash@3
+      displayName: 'Extract Version'
+      inputs:
+        targetType: inline
+        script: |
+          VERSION=$(grep '^version:' k8s/trading-bot/Chart.yaml | awk '{print $2}' | tr -d '"' | tr -d "'")
+          echo "##vso[task.setvariable variable=VERSION]$VERSION"
+    - task: Docker@2
+      displayName: 'Build and Push Main App'
+      inputs:
+        containerRegistry: 'docker-hub-conn'
+        repository: $(dockerRepository)
+        command: 'buildAndPush'
+        tags: |
+          $(VERSION)
+          latest
+- stage: BuildMigration
+  displayName: 'Build and Push Migration Image'
+  dependsOn:
+  - StageID_PreBuild
+  jobs:
+  - job: BuildMigrationJob
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - task: 6d15af64-176c-496d-b583-fd2ae21d4df4@1
+      inputs:
+        repository: self
+    - task: Bash@3
+      displayName: 'Extract Version'
+      inputs:
+        targetType: inline
+        script: |
+          VERSION=$(grep '^version:' k8s/trading-bot/Chart.yaml | awk '{print $2}' | tr -d '"' | tr -d "'")
+          echo "##vso[task.setvariable variable=VERSION]$VERSION"
+    - task: Docker@2
+      displayName: 'Build and Push Migration Job'
+      inputs:
+        containerRegistry: 'docker-hub-conn'
+        repository: $(migrationRepository)
+        command: 'buildAndPush'
+        Dockerfile: 'migration-service/Dockerfile'
+        tags: |
+          $(VERSION)
+          latest
+- stage: BuildPushHelm
+  displayName: 'Helm: Package and Push'
+  dependsOn:
+  - BuildMigration
+  jobs:
+  - job: HelmJob
+    displayName: 'Package and Push Helm'
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - task: 6d15af64-176c-496d-b583-fd2ae21d4df4@1
+      inputs:
+        repository: self
+    - task: Bash@3
+      displayName: 'Update Values, Package and Push Helm'
+      env:
+        DOCKER_USER: $(DOCKER_USER)
+        DOCKER_PASS: $(DOCKER_PASS)
+      inputs:
+        targetType: inline
+        script: |
+          set -e
+
+          # 1. Считываем имя и версию из Chart.yaml
+          CHART_NAME=$(grep '^name:' k8s/trading-bot/Chart.yaml | awk '{print $2}' | tr -d '"' | tr -d "'")
+          CHART_VERSION=$(grep '^version:' k8s/trading-bot/Chart.yaml | awk '{print $2}' | tr -d '"' | tr -d "'")
+
+          echo "Detected Chart Name: $CHART_NAME"
+          echo "Detected Chart Version: $CHART_VERSION"
+
+          echo "Updating image tag in values.yaml to $CHART_VERSION..."
+          sed -i "s/tag: .*/tag: \"$CHART_VERSION\"/g" k8s/trading-bot/values.yaml
+
+          # 2. Авторизация в Docker Hub реестре
+          echo "$DOCKER_PASS" | helm registry login registry-1.docker.io --username "$DOCKER_USER" --password-stdin
+
+          # 3. Компиляция чарта в .tgz архив
+          helm package k8s/trading-bot --version "$CHART_VERSION"
+
+          # 4. Пушим в корень аккаунта
+          echo "Pushing chart to OCI registry..."
+          helm push ${CHART_NAME}-${CHART_VERSION}.tgz oci://registry-1.docker.io/prozgamer
+- stage: UpdateArgoCD
+  displayName: 'Update ArgoCD State'
+  dependsOn:
+  - StageID_PreBuild
+  - BuildPushHelm
+  variables:
+  - name: appVersion
+    value: $[ stageDependencies.StageID_PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]
+  jobs:
+  - job: UpdateManifest
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - task: 6d15af64-176c-496d-b583-fd2ae21d4df4@1
+      inputs:
+        repository: stateRepo
+        persistCredentials: true
+    - task: Bash@3
+      displayName: 'Update ArgoCD Application Manifest and Push to Git'
+      inputs:
+        targetType: inline
+        script: |
+          set -e
+
+          # Выводим текущую версию для логирования
+          echo "Updating targetRevision to $(appVersion) in application.yaml..."
+
+          sed -i "s/targetRevision: .*/targetRevision: \"$(appVersion)\"/g" application.yaml
+
+          git config --global user.email "devops-pipeline@azure.com"
+          git config --global user.name "Azure DevOps Pipeline"
+
+          git add application.yaml
+          git commit -m "chore: update trading-bot-helm version to $(appVersion) [skip ci]"
+          git push origin HEAD:main
+
