@@ -1,0 +1,34 @@
+settings:
+    applicationVersion: ${APP_VERSION:1.0.0-SNAPSHOT}
+    testMode:
+        enabled: false
+
+logging:
+    level:
+        org.springframework.web: DEBUG
+
+spring:
+    mvc:
+        throw-exception-if-no-handler-found: true
+    web:
+        resources:
+            add-mappings: false
+    datasource:
+        datasource:
+            url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/myproject}
+            username: ${SPRING_DATASOURCE_USERNAME:admin}
+            password: ${SPRING_DATASOURCE_PASSWORD:}
+
+    jpa:
+        hibernate:
+            ddl-auto: validate
+        show-sql: true
+        properties:
+            hibernate:
+                format_sql: true
+
+    flyway:
+        enabled: false
+server:
+    port: 8080
+
