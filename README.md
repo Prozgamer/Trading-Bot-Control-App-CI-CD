@@ -91,4 +91,4 @@ The deployment lifecycle is fully automated through an **Azure DevOps Pipeline**
 ---
 
 ## Video
-[Project](https://youtu.be/v9x1DK9F7ms)
+[![Описание видео](https://img.youtube.com/vi/v9x1DK9F7ms/0.jpg)](https://youtu.be/v9x1DK9F7ms)
