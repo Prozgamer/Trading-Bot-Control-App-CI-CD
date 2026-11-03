@@ -90,21 +90,5 @@ The deployment lifecycle is fully automated through an **Azure DevOps Pipeline**
 
 ---
 
-## 💻 Local Quickstart
-
-### Prerequisites
-- Docker & Docker Compose
-- JDK 21
-- Maven 3.x
-
-### Running via Docker Compose
-```bash
-# Clone the repository
-git clone https://github.com/Prozgamer/Trading-Bot-Control-App-CI-CD.git
-cd Trading-Bot-Control-App-CI-CD
-
-# Spin up PostgreSQL, Flyway Migrations, and API
-docker-compose up -d --build
-```
-
-The application will be accessible at `http://localhost:5100` (or `http://localhost:8080`).
+## Video
+[Project](https://youtu.be/v9x1DK9F7ms)
